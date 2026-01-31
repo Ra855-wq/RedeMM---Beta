@@ -1,50 +1,49 @@
+
 import React from 'react';
-import { Bell, Search, Menu } from 'lucide-react';
+import { Bell, Search, Menu, Eye, EyeOff } from 'lucide-react';
 
 interface HeaderProps {
   userName: string;
+  onOpenMenu?: () => void;
+  eyeRest: boolean;
+  setEyeRest: (val: boolean) => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ userName }) => {
+export const Header: React.FC<HeaderProps> = ({ userName, onOpenMenu, eyeRest, setEyeRest }) => {
   return (
-    <header className="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between sticky top-0 z-40">
-      <div className="flex items-center gap-4 md:hidden">
-        <button className="text-slate-500 hover:text-primary-700">
-          <Menu size={24} />
-        </button>
-        <span className="font-bold text-primary-800">RedeMM</span>
-      </div>
-
-      <div className="hidden md:block">
-        <h2 className="text-xl font-bold text-slate-800">Bem-vindo, {userName}</h2>
-        <p className="text-xs text-slate-500">Acesse rapidamente os recursos principais da RedeMM</p>
-      </div>
-
-      <div className="flex items-center gap-6">
-        <div className="hidden md:flex items-center bg-slate-100 rounded-full px-4 py-2 w-64">
-          <Search size={18} className="text-slate-400" />
-          <input 
-            type="text" 
-            placeholder="Buscar pacientes..." 
-            className="bg-transparent border-none outline-none text-sm ml-2 w-full text-slate-700 placeholder-slate-400"
-          />
+    <header className="bg-white/80 backdrop-blur-md border-b border-neutral-100 px-6 py-4 flex items-center justify-between sticky top-0 z-40 h-20">
+      <div className="flex items-center gap-4">
+        <button onClick={onOpenMenu} className="md:hidden p-2 text-neutral-500"><Menu size={24} /></button>
+        <div className="hidden md:block">
+          <h2 className="text-lg font-bold text-neutral-800">Olá, {userName}</h2>
+          <p className="text-[10px] text-neutral-400 font-bold uppercase tracking-widest">Painel Integrado Mais Médicos</p>
         </div>
+      </div>
 
-        <button className="relative p-2 text-slate-500 hover:text-primary-600 transition-colors">
-          <Bell size={24} />
-          <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white"></span>
+      <div className="flex items-center gap-4">
+        <button 
+          onClick={() => setEyeRest(!eyeRest)}
+          title="Descanso de Visão"
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all border
+            ${eyeRest ? 'bg-orange-50 border-orange-200 text-orange-700' : 'bg-neutral-50 border-neutral-100 text-neutral-500 hover:bg-neutral-100'}`}
+        >
+          {eyeRest ? <EyeOff size={16} /> : <Eye size={16} />}
+          <span className="hidden sm:inline">{eyeRest ? 'Modo Descanso ON' : 'Descanso de Visão'}</span>
         </button>
 
-        <div className="flex items-center gap-3 border-l border-slate-200 pl-6">
-          <div className="text-right hidden sm:block">
-            <p className="text-sm font-semibold text-slate-700">{userName}</p>
-            <p className="text-xs text-primary-600 font-medium">Médica PMMB</p>
-          </div>
-          <img 
-            src="https://picsum.photos/100/100" 
-            alt="Profile" 
-            className="w-10 h-10 rounded-full border-2 border-primary-100 object-cover"
-          />
+        <button className="p-2 text-neutral-400 hover:text-neutral-900 relative">
+          <Bell size={20} />
+          <span className="absolute top-2 right-2 w-2 h-2 bg-neutral-800 rounded-full border-2 border-white"></span>
+        </button>
+
+        <div className="flex items-center gap-3 pl-4 border-l border-neutral-100">
+           <div className="text-right hidden sm:block">
+              <p className="text-xs font-bold text-neutral-700">{userName}</p>
+              <p className="text-[10px] text-neutral-400">ID: PMM-9872</p>
+           </div>
+           <div className="w-10 h-10 rounded-full bg-neutral-100 border border-neutral-200 flex items-center justify-center text-neutral-400 font-bold">
+              {userName[0]}
+           </div>
         </div>
       </div>
     </header>

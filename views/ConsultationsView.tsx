@@ -1,87 +1,302 @@
 
-import React from 'react';
-import { User, Clock, FileText, ChevronRight, Filter } from 'lucide-react';
+import React, { useState } from 'react';
+import { 
+  Plus, Trash2, Calendar, ClipboardList, CheckCircle2, 
+  X, Activity, HeartPulse, Stethoscope, AlertTriangle, 
+  FileText, Loader2, Zap, Printer, ArrowRight, Users, Bot,
+  ShieldCheck, Hash, Pill, Clock, User
+} from 'lucide-react';
+import { GoogleGenAI } from "@google/genai";
+
+interface Patient {
+  id: string;
+  name: string;
+  age: string;
+  condition: string;
+  date: string;
+}
+
+interface PrescriptionItem {
+  id: string;
+  medication: string;
+  dosage: string;
+  instructions: string;
+}
 
 export const ConsultationsView: React.FC = () => {
-  const list = [
-    { id: '1', name: 'Maria do Socorro', age: 62, status: 'Esperando', time: '08:15', risk: 'Alto' },
-    { id: '2', name: 'João Pereira', age: 45, status: 'Em triagem', time: '08:30', risk: 'Médio' },
-    { id: '3', name: 'Ana Júlia Santos', age: 24, status: 'Agendado', time: '09:00', risk: 'Baixo' },
-    { id: '4', name: 'Antônio Ferreira', age: 70, status: 'Agendado', time: '09:15', risk: 'Alto' },
-  ];
+  const [patients, setPatients] = useState<Patient[]>([
+    { id: '1', name: 'Maria do Socorro', age: '62', condition: 'Hipertensa e Diabética Tipo 2', date: '12/10/2024' },
+    { id: '2', name: 'João Pereira', age: '45', condition: 'Asma Grave e Obesidade Grau I', date: '14/10/2024' },
+    { id: '3', name: 'Antônio Carlos', age: '70', condition: 'Insuficiência Cardíaca (NYHA II)', date: '15/10/2024' },
+  ]);
+  
+  const [isAdding, setIsAdding] = useState(false);
+  const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
+  const [isRecordOpen, setIsRecordOpen] = useState(false);
+  const [isPrescriptionOpen, setIsPrescriptionOpen] = useState(false);
+  const [aiAnalysis, setAiAnalysis] = useState<string>('');
+  const [isLoadingAnalysis, setIsLoadingAnalysis] = useState(false);
+  const [newPatient, setNewPatient] = useState({ name: '', age: '', condition: '' });
+
+  const [prescriptionItems, setPrescriptionItems] = useState<PrescriptionItem[]>([
+    { id: '1', medication: 'Metformina 850mg', dosage: '1 comprimido 2x ao dia', instructions: 'Tomar após o café e após o jantar.' }
+  ]);
+  const [currentPrescriptionHash, setCurrentPrescriptionHash] = useState('');
+
+  const generateHash = () => {
+    return 'HSH-' + Math.random().toString(36).substring(2, 8).toUpperCase() + '-' + Math.random().toString(36).substring(2, 4).toUpperCase();
+  };
+
+  const addPatient = () => {
+    if (!newPatient.name) return;
+    const patient: Patient = {
+      ...newPatient,
+      id: Math.random().toString(36).substr(2, 9),
+      date: new Date().toLocaleDateString('pt-BR')
+    };
+    setPatients([patient, ...patients]);
+    setNewPatient({ name: '', age: '', condition: '' });
+    setIsAdding(false);
+  };
+
+  const removePatient = (id: string) => setPatients(patients.filter(p => p.id !== id));
+
+  const openQuickRecord = async (patient: Patient) => {
+    setSelectedPatient(patient);
+    setIsRecordOpen(true);
+    setIsLoadingAnalysis(true);
+    setAiAnalysis('');
+
+    try {
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      const response = await ai.models.generateContent({
+        model: 'gemini-3-flash-preview',
+        contents: `Como um médico preceptor do PMMB, forneça um "Prontuário Rápido" ultra-objetivo para o caso abaixo:
+        Paciente: ${patient.name}, ${patient.age} anos. 
+        Condição Principal: ${patient.condition}. 
+        
+        Siga rigorosamente esta estrutura:
+        - PERFIL CLÍNICO: (2 linhas sobre o manejo padrão)
+        - RISCOS IMEDIATOS: (Alertas baseados na idade e patologia)
+        - CONDUTA SUGERIDA: (3 passos técnicos citando protocolos brasileiros)
+        
+        Seja conciso, use linguagem médica de alto nível.`,
+      });
+      setAiAnalysis(response.text || 'Análise indisponível.');
+    } catch (error) {
+      setAiAnalysis('Erro de conexão clínica.');
+    } finally {
+      setIsLoadingAnalysis(false);
+    }
+  };
+
+  const openPrescription = (patient: Patient) => {
+    setSelectedPatient(patient);
+    setCurrentPrescriptionHash(generateHash());
+    setIsPrescriptionOpen(true);
+    setIsRecordOpen(false);
+  };
+
+  const addPrescriptionItem = () => {
+    const newItem: PrescriptionItem = { id: Math.random().toString(36).substr(2, 9), medication: '', dosage: '', instructions: '' };
+    setPrescriptionItems([...prescriptionItems, newItem]);
+  };
+
+  const updatePrescriptionItem = (id: string, field: keyof PrescriptionItem, value: string) => {
+    setPrescriptionItems(prescriptionItems.map(item => item.id === id ? { ...item, [field]: value } : item));
+  };
 
   return (
-    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
-        <div className="p-6 border-b border-slate-50 flex items-center justify-between bg-slate-50/30">
-          <div>
-            <h2 className="text-xl font-bold text-slate-800">Fila de Atendimento</h2>
-            <p className="text-sm text-slate-500">UBS Central - Equipe A</p>
+    <div className="space-y-12 animate-zoom-fade">
+      {/* Header Gestão */}
+      <div className="bg-white p-10 rounded-[3.5rem] border border-slate-100 shadow-surgical flex flex-col md:flex-row justify-between items-center gap-10">
+        <div className="flex items-center gap-8">
+          <div className="w-20 h-20 bg-neutral-900 rounded-[2.2rem] flex items-center justify-center text-white shadow-2xl shadow-neutral-900/10">
+            <Users className="w-10 h-10" />
           </div>
-          <button className="p-2 border border-slate-200 rounded-xl hover:bg-white transition-colors">
-            <Filter size={20} className="text-slate-600" />
-          </button>
+          <div>
+            <h2 className="text-4xl font-black text-slate-900 tracking-tighter">Gestão de Pacientes</h2>
+            <div className="flex items-center gap-3 mt-1.5">
+              <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse shadow-[0_0_12px_#10b981]"></span>
+              <p className="text-[11px] text-slate-400 font-black uppercase tracking-[0.3em]">Base PMMB · Viana / ES</p>
+            </div>
+          </div>
         </div>
-
-        <div className="overflow-x-auto">
-          <table className="w-full text-left">
-            <thead className="bg-slate-50 text-slate-500 text-xs font-bold uppercase tracking-wider">
-              <tr>
-                <th className="px-6 py-4">Paciente</th>
-                <th className="px-6 py-4">Horário</th>
-                <th className="px-6 py-4">Status</th>
-                <th className="px-6 py-4">Risco</th>
-                <th className="px-6 py-4"></th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-50">
-              {list.map((item) => (
-                <tr key={item.id} className="hover:bg-slate-50 transition-colors group">
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-primary-50 rounded-full flex items-center justify-center text-primary-600 font-bold">
-                        {item.name[0]}
-                      </div>
-                      <div>
-                        <p className="font-bold text-slate-800 text-sm">{item.name}</p>
-                        <p className="text-xs text-slate-500">{item.age} anos</p>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-2 text-slate-600 text-sm">
-                      <Clock size={16} />
-                      {item.time}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className={`text-[10px] font-bold px-2 py-1 rounded-full uppercase
-                      ${item.status === 'Esperando' ? 'bg-orange-100 text-orange-600' : 
-                        item.status === 'Em triagem' ? 'bg-blue-100 text-blue-600' : 'bg-slate-100 text-slate-600'}
-                    `}>
-                      {item.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-1.5">
-                      <span className={`w-2 h-2 rounded-full 
-                        ${item.risk === 'Alto' ? 'bg-red-500' : 
-                          item.risk === 'Médio' ? 'bg-yellow-500' : 'bg-green-500'}
-                      `}></span>
-                      <span className="text-sm text-slate-600">{item.risk}</span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 text-right">
-                    <button className="p-2 text-slate-300 group-hover:text-primary-600 transition-colors">
-                      <ChevronRight size={20} />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <button 
+          onClick={() => setIsAdding(true)} 
+          className="bg-accent-600 hover:bg-accent-700 text-white px-12 py-6 rounded-[2rem] font-black text-xs uppercase tracking-[0.2em] shadow-surgical-xl transition-all flex items-center gap-3 active:scale-95 group"
+        >
+          <Plus size={22} className="group-hover:rotate-90 transition-transform duration-500" /> ADICIONAR PACIENTE
+        </button>
       </div>
+
+      {/* Grid de Pacientes */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
+        {patients.map((p) => (
+          <div key={p.id} className="bg-white p-10 rounded-[4rem] border border-slate-100 shadow-surgical hover:shadow-surgical-xl transition-all duration-700 group relative overflow-hidden">
+            <div className="flex justify-between items-start mb-10">
+              <div className="w-20 h-20 bg-slate-50 rounded-[2.2rem] flex items-center justify-center text-accent-600 shadow-inner group-hover:bg-accent-600 group-hover:text-white transition-all duration-700">
+                <ClipboardList size={32} />
+              </div>
+              <button onClick={() => removePatient(p.id)} className="p-4 text-slate-200 hover:text-red-500 transition-colors">
+                <Trash2 size={24} />
+              </button>
+            </div>
+            
+            <h3 className="text-3xl font-black text-slate-900 mb-3 truncate group-hover:text-accent-600 transition-colors leading-tight">{p.name}</h3>
+            
+            <div className="space-y-4 mb-12">
+              <div className="flex items-center gap-3 text-[11px] font-black text-slate-400 uppercase tracking-widest">
+                <Calendar size={18} className="text-accent-500" /> CADASTRADO EM {p.date}
+              </div>
+              <div className="flex items-center gap-3 text-[11px] font-black text-slate-400 uppercase tracking-widest">
+                <CheckCircle2 size={18} className="text-emerald-500" /> {p.age} ANOS · {p.condition}
+              </div>
+            </div>
+
+            <button 
+              onClick={() => openQuickRecord(p)}
+              className="w-full py-6 bg-slate-50 group-hover:bg-neutral-900 group-hover:text-white rounded-[2rem] text-[11px] font-black uppercase tracking-[0.25em] transition-all flex items-center justify-center gap-3 shadow-sm"
+            >
+              <FileText size={18} /> ABRIR PRONTUÁRIO
+            </button>
+          </div>
+        ))}
+      </div>
+
+      {/* Modal Prontuário */}
+      {isRecordOpen && selectedPatient && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 md:p-8 bg-slate-900/60 backdrop-blur-xl animate-in fade-in duration-500">
+          <div className="bg-white rounded-[4rem] w-full max-w-2xl shadow-surgical-xl border border-white relative overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="p-10 bg-neutral-900 text-white shrink-0 relative">
+               <div className="absolute top-0 right-0 w-80 h-80 bg-accent-600/10 blur-[100px] rounded-full -mr-32 -mt-32"></div>
+               <div className="relative z-10 flex justify-between items-start">
+                  <div className="flex items-center gap-6">
+                    <div className="w-14 h-14 bg-accent-600 rounded-2xl flex items-center justify-center shadow-2xl">
+                       <Stethoscope size={28} />
+                    </div>
+                    <div>
+                       <h3 className="text-3xl font-black tracking-tighter uppercase">Prontuário Rápido</h3>
+                       <p className="text-[10px] font-black text-accent-400 uppercase tracking-[0.4em]">Surgical Intelligence v3.1</p>
+                    </div>
+                  </div>
+                  <button onClick={() => setIsRecordOpen(false)} className="p-4 bg-white/10 hover:bg-white/20 rounded-2xl transition-all">
+                    <X size={24} />
+                  </button>
+               </div>
+               <div className="mt-10 flex gap-10 items-center border-t border-white/10 pt-8">
+                  <div><p className="text-[10px] font-black text-white/40 uppercase tracking-widest">Paciente</p><p className="text-xl font-bold">{selectedPatient.name}</p></div>
+                  <div><p className="text-[10px] font-black text-white/40 uppercase tracking-widest">Idade</p><p className="text-xl font-bold">{selectedPatient.age} Anos</p></div>
+               </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-10 custom-scroll space-y-10 bg-slate-50/50">
+               {isLoadingAnalysis ? (
+                 <div className="py-20 flex flex-col items-center justify-center gap-8"><Loader2 className="animate-spin text-accent-600" size={60} /><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Consultando IA Clínica...</p></div>
+               ) : (
+                 <div className="space-y-8 animate-zoom-fade">
+                    <div className="p-10 bg-white rounded-[3rem] border border-slate-100 shadow-surgical whitespace-pre-wrap text-base font-bold text-slate-800 leading-relaxed italic border-l-8 border-accent-600 pl-12">{aiAnalysis}</div>
+                    <div className="grid grid-cols-2 gap-6">
+                       <button onClick={() => openPrescription(selectedPatient)} className="flex items-center justify-center gap-4 p-6 bg-neutral-900 text-white rounded-[2rem] text-xs font-black uppercase tracking-[0.2em] hover:bg-accent-600 transition-all shadow-surgical-xl active:scale-95">
+                          <ArrowRight size={20} /> Prescrição Digital
+                       </button>
+                       <button className="flex items-center justify-center gap-4 p-6 bg-white text-accent-600 border border-slate-100 rounded-[2rem] text-xs font-black uppercase tracking-[0.2em] hover:bg-slate-50 transition-all shadow-surgical active:scale-95">
+                          <Printer size={20} /> Imprimir Relatório
+                       </button>
+                    </div>
+                 </div>
+               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Receituário - Corrigido */}
+      {isPrescriptionOpen && selectedPatient && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 md:p-12 bg-slate-900/70 backdrop-blur-2xl animate-in fade-in duration-500">
+          <div className="bg-white rounded-[4rem] w-full max-w-6xl shadow-surgical-xl border border-white relative overflow-hidden flex flex-col max-h-[96vh] printable-area animate-zoom-fade">
+            <div className="p-12 md:p-16 bg-neutral-900 text-white shrink-0 no-print">
+               <div className="flex justify-between items-start mb-12">
+                  <div className="flex items-center gap-8">
+                    <div className="w-16 h-16 bg-accent-600 rounded-[1.8rem] flex items-center justify-center shadow-2xl">
+                      <Pill size={32} />
+                    </div>
+                    <div>
+                      <h3 className="text-4xl md:text-5xl font-black tracking-tighter uppercase leading-none">RECEITUÁRIO</h3>
+                      <p className="text-[10px] md:text-[12px] font-black text-accent-400 uppercase tracking-[0.5em] mt-2">Surgical Digital Prescription</p>
+                    </div>
+                  </div>
+                  <button onClick={() => setIsPrescriptionOpen(false)} className="p-5 bg-white/10 hover:bg-white/20 rounded-[1.8rem] transition-all">
+                    <X size={28} />
+                  </button>
+               </div>
+
+               <div className="grid grid-cols-2 md:grid-cols-4 gap-8 md:gap-12 border-t border-white/10 pt-10">
+                  <div className="space-y-1"><p className="text-[10px] font-black text-white/30 uppercase tracking-[0.2em]">Paciente</p><p className="text-xl md:text-2xl font-bold truncate">{selectedPatient.name}</p></div>
+                  <div className="space-y-1"><p className="text-[10px] font-black text-white/30 uppercase tracking-[0.2em]">Idade</p><p className="text-xl md:text-2xl font-bold">{selectedPatient.age} Anos</p></div>
+                  <div className="space-y-1"><p className="text-[10px] font-black text-white/30 uppercase tracking-[0.2em]">ID PMMB</p><p className="text-xl md:text-2xl font-bold">#1356</p></div>
+                  <div className="bg-accent-600/10 p-4 md:p-6 rounded-[1.8rem] border border-accent-600/20">
+                    <p className="text-[10px] font-black text-accent-400 uppercase tracking-[0.2em] mb-1">Hash Segura</p>
+                    <p className="text-xs md:text-sm font-black font-mono">{currentPrescriptionHash}</p>
+                  </div>
+               </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-10 md:p-16 custom-scroll bg-white">
+               <div className="space-y-12 max-w-5xl mx-auto">
+                  <div className="space-y-8">
+                    {prescriptionItems.map((item, index) => (
+                      <div key={item.id} className="bg-slate-50/50 p-10 md:p-14 rounded-[3.5rem] border border-slate-100 shadow-sm relative group hover:border-accent-200 transition-all">
+                        <div className="absolute -left-3 top-1/2 -translate-y-1/2 w-1.5 h-32 bg-accent-600 rounded-full"></div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12">
+                          <div className="space-y-6">
+                            <div className="space-y-2.5">
+                              <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-2">Medicamento</label>
+                              <input type="text" value={item.medication} onChange={(e) => updatePrescriptionItem(item.id, 'medication', e.target.value)} className="w-full bg-white border border-slate-200 rounded-[1.8rem] px-8 py-5 text-lg font-black text-slate-900 focus:ring-4 focus:ring-accent-50 transition-all outline-none" placeholder="Ex: Metformina..." />
+                            </div>
+                            <div className="space-y-2.5">
+                              <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-2">Posologia</label>
+                              <input type="text" value={item.dosage} onChange={(e) => updatePrescriptionItem(item.id, 'dosage', e.target.value)} className="w-full bg-white border border-slate-200 rounded-[1.8rem] px-8 py-5 text-base font-bold text-slate-700 focus:ring-4 focus:ring-accent-50 transition-all outline-none" placeholder="Ex: 2x ao dia..." />
+                            </div>
+                          </div>
+                          <div className="space-y-2.5">
+                            <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-2">Observações e Orientações</label>
+                            <textarea value={item.instructions} onChange={(e) => updatePrescriptionItem(item.id, 'instructions', e.target.value)} rows={6} className="w-full bg-white border border-slate-200 rounded-[2.2rem] p-8 text-base font-medium text-slate-600 focus:ring-4 focus:ring-accent-50 transition-all outline-none resize-none leading-relaxed" placeholder="Orientações adicionais de uso..." />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <button onClick={addPrescriptionItem} className="w-full py-8 border-4 border-dashed border-slate-100 rounded-[3.5rem] text-slate-300 hover:border-accent-400 hover:text-accent-600 hover:bg-accent-50/10 transition-all flex items-center justify-center gap-6 text-[12px] font-black uppercase tracking-[0.4em] no-print">
+                    <Plus size={28} /> Adicionar Novo Item à Receita
+                  </button>
+                  
+                  <div className="pt-16 border-t border-slate-100 flex justify-between items-end pb-8">
+                     <div className="space-y-2 opacity-30">
+                        <p className="text-[10px] font-black uppercase tracking-[0.4em]">Protocolo Surgical 3.1</p>
+                        <p className="text-xs font-mono">{currentPrescriptionHash}</p>
+                     </div>
+                     <div className="text-right space-y-2">
+                        <div className="h-1 w-64 bg-neutral-900 ml-auto mb-2"></div>
+                        <p className="text-xl font-black text-slate-900 leading-none">Dr. Rafael Araujo</p>
+                        <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">CRM/ES 9872 · Médico Mais Médicos</p>
+                     </div>
+                  </div>
+               </div>
+            </div>
+
+            <div className="p-10 md:p-14 bg-slate-50 border-t border-slate-100 flex gap-6 md:gap-8 no-print shrink-0">
+               <button onClick={() => window.print()} className="flex-1 bg-neutral-900 text-white py-6 md:py-8 rounded-[2rem] font-black text-xs md:text-sm uppercase tracking-[0.3em] shadow-surgical-xl hover:bg-neutral-800 transition-all flex items-center justify-center gap-4 transform active:scale-95">
+                 <Printer size={24} /> IMPRIMIR RECEITUÁRIO
+               </button>
+               <button className="flex-1 bg-white text-accent-600 border border-accent-100 py-6 md:py-8 rounded-[2rem] font-black text-xs md:text-sm uppercase tracking-[0.3em] hover:bg-accent-50 transition-all flex items-center justify-center gap-4 transform active:scale-95">
+                 <ShieldCheck size={24} /> AUTENTICAR DIGITALMENTE
+               </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

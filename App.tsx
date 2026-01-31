@@ -1,25 +1,30 @@
-import React, { useState } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { LoginView } from './views/LoginView';
 import { DashboardView } from './views/DashboardView';
 
 const App: React.FC = () => {
-  // Simple state-based routing/auth simulation
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [eyeRest, setEyeRest] = useState(false);
 
-  const handleLogin = () => {
-    setIsLoggedIn(true);
-  };
-
-  const handleLogout = () => {
-    setIsLoggedIn(false);
-  };
+  useEffect(() => {
+    if (eyeRest) {
+      document.body.classList.add('descanso-visao');
+    } else {
+      document.body.classList.remove('descanso-visao');
+    }
+  }, [eyeRest]);
 
   return (
-    <div className="antialiased text-slate-900 bg-slate-50 min-h-screen">
+    <div className="antialiased min-h-screen">
       {isLoggedIn ? (
-        <DashboardView onLogout={handleLogout} />
+        <DashboardView 
+          onLogout={() => setIsLoggedIn(false)} 
+          eyeRest={eyeRest} 
+          setEyeRest={setEyeRest} 
+        />
       ) : (
-        <LoginView onLogin={handleLogin} />
+        <LoginView onLogin={() => setIsLoggedIn(true)} />
       )}
     </div>
   );
