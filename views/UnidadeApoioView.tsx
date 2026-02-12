@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   HeartPulse, MapPin, Search, Loader2, LocateFixed, 
-  Building2, Hospital, Stethoscope, ChevronRight, Info, Layers, Volume2, Sparkles
+  Building2, Hospital, Stethoscope, ChevronRight, Info, Layers, Volume2, Sparkles, Hash
 } from 'lucide-react';
 import { GoogleGenAI, Modality } from "@google/genai";
 
@@ -49,36 +49,37 @@ export const UnidadeApoioView: React.FC = () => {
   const markersLayerRef = useRef<any>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
 
-  // Fix for Map rendering bug: ensure invalidateSize is called after container is measured
+  // Robust Map Initialization with ResizeObserver to fix white screen bug
   useEffect(() => {
-    initMap();
-    handleGetLocation();
+    if (!mapContainerRef.current) return;
+
+    if (!mapRef.current) {
+      mapRef.current = L.map(mapContainerRef.current).setView([-15.7975, -47.8919], 4);
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+        attribution: '&copy; OpenStreetMap',
+        subdomains: 'abcd',
+        maxZoom: 20
+      }).addTo(mapRef.current);
+      markersLayerRef.current = L.layerGroup().addTo(mapRef.current);
+    }
+
+    const resizeObserver = new ResizeObserver(() => {
+      mapRef.current?.invalidateSize();
+    });
     
-    const timer = setTimeout(() => {
-      if (mapRef.current) {
-        mapRef.current.invalidateSize();
-      }
-    }, 500);
+    resizeObserver.observe(mapContainerRef.current);
+    
+    // Trigger initial location fetch
+    handleGetLocation();
 
     return () => {
-      clearTimeout(timer);
+      resizeObserver.disconnect();
       if (mapRef.current) {
         mapRef.current.remove();
         mapRef.current = null;
       }
     };
   }, []);
-
-  const initMap = () => {
-    if (mapRef.current || !mapContainerRef.current) return;
-    mapRef.current = L.map(mapContainerRef.current).setView([-15.7975, -47.8919], 4);
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-      attribution: '&copy; OpenStreetMap',
-      subdomains: 'abcd',
-      maxZoom: 20
-    }).addTo(mapRef.current);
-    markersLayerRef.current = L.layerGroup().addTo(mapRef.current);
-  };
 
   const handleGetLocation = () => {
     if ("geolocation" in navigator) {
@@ -108,11 +109,8 @@ export const UnidadeApoioView: React.FC = () => {
     setSpeakingId(id);
     try {
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      // Improved TTS response: More professional and descriptive
-      const prompt = `Como um assistente médico genial, apresente este local de forma empática e profissional: 
-      Nome: ${place.title}. 
-      Descrição: ${place.snippet}.
-      Inicie com: "Doutor, encontrei o ${place.title}." e adicione uma recomendação baseada no tipo de unidade.`;
+      // Simplified prompt to avoid 500 Internal Error on TTS model
+      const prompt = `Doutor, encontrei o ${place.title}. ${place.snippet}. Recomendo verificar o horário.`;
 
       const response = await ai.models.generateContent({
         model: "gemini-2.5-flash-preview-tts",
@@ -146,6 +144,7 @@ export const UnidadeApoioView: React.FC = () => {
     } catch (e) {
       console.error("Erro no TTS do Mapa:", e);
       setSpeakingId(null);
+      alert("Áudio indisponível temporariamente.");
     }
   };
 
@@ -205,7 +204,7 @@ export const UnidadeApoioView: React.FC = () => {
 
   return (
     <div className="space-y-8 h-full flex flex-col animate-in fade-in duration-1000">
-      {/* Search Bar - Matching Screenshot Layout */}
+      {/* Search Bar */}
       <div className="bg-white p-6 md:p-8 rounded-[3.5rem] border border-slate-100 shadow-surgical flex flex-col md:flex-row gap-6 items-center floating-card">
         <div className="flex-1 w-full relative">
           <input 
@@ -237,19 +236,8 @@ export const UnidadeApoioView: React.FC = () => {
       </div>
 
       <div className="flex-1 min-h-[500px] flex flex-col lg:flex-row gap-10">
-        {/* Map Container - Bug Fixed */}
-        <div className="flex-1 bg-white rounded-[4rem] border border-slate-100 shadow-surgical overflow-hidden relative floating-card group min-h-[400px]">
-          <div ref={mapContainerRef} className="w-full h-full z-10" />
-          <div className="absolute top-8 right-8 z-20 pointer-events-none">
-             <div className="bg-white/90 backdrop-blur-xl px-6 py-3 rounded-[2rem] border border-white/50 shadow-2xl text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] flex items-center gap-3">
-               <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></div>
-               Visualização em Tempo Real
-             </div>
-          </div>
-        </div>
-        
-        {/* Sidebar Results */}
-        <div className="w-full lg:w-[460px] bg-white p-10 rounded-[4rem] border border-slate-100 shadow-surgical overflow-y-auto custom-scroll floating-card">
+        {/* Sidebar Results - Moved to LEFT for better layout */}
+        <div className="w-full lg:w-[460px] bg-white p-10 rounded-[4rem] border border-slate-100 shadow-surgical overflow-y-auto custom-scroll floating-card order-2 lg:order-1">
            <h3 className="font-black text-neutral-900 text-[11px] uppercase tracking-[0.3em] mb-10 flex items-center gap-3">
               <div className="w-3 h-3 rounded-full bg-accent-500"></div> Unidades Identificadas
            </h3>
@@ -299,6 +287,17 @@ export const UnidadeApoioView: React.FC = () => {
               ))}
            </div>
         </div>
+
+        {/* Map Container - Moved to RIGHT and fixed rendering */}
+        <div className="flex-1 bg-white rounded-[4rem] border border-slate-100 shadow-surgical overflow-hidden relative floating-card group min-h-[400px] order-1 lg:order-2">
+          <div ref={mapContainerRef} className="w-full h-full z-10" />
+          <div className="absolute top-8 right-8 z-20 pointer-events-none">
+             <div className="bg-white/90 backdrop-blur-xl px-6 py-3 rounded-[2rem] border border-white/50 shadow-2xl text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] flex items-center gap-3">
+               <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></div>
+               Visualização em Tempo Real
+             </div>
+          </div>
+        </div>
       </div>
 
       <div className="flex flex-wrap gap-6 justify-center pb-12">
@@ -316,13 +315,3 @@ export const UnidadeApoioView: React.FC = () => {
     </div>
   );
 };
-
-// Fixed hash icon missing in UnidadeApoioView
-const Hash = ({ size, className }: { size: number, className?: string }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className={className}>
-    <line x1="4" y1="9" x2="20" y2="9" />
-    <line x1="4" y1="15" x2="20" y2="15" />
-    <line x1="10" y1="3" x2="8" y2="21" />
-    <line x1="16" y1="3" x2="14" y2="21" />
-  </svg>
-);
