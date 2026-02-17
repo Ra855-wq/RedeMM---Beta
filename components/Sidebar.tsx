@@ -37,7 +37,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ onLogout, activePage, setActiv
           </div>
           <div className="text-center">
             <h1 className="text-xl font-black text-neutral-900 tracking-tighter leading-none">REDE<span className="text-accent-600">MM</span></h1>
-            <p className="text-[8px] font-black text-neutral-400 uppercase tracking-[0.4em] mt-2">Surgical Genius</p>
           </div>
           <div className="mt-4 px-4 py-1.5 bg-accent-600 rounded-full text-[8px] font-black text-white uppercase tracking-[0.25em] shadow-lg shadow-accent-500/20">v3.1 Surgical</div>
         </div>
@@ -71,7 +70,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ onLogout, activePage, setActiv
              </div>
              <div className="overflow-hidden">
                 <p className="text-[9px] font-black text-white uppercase tracking-widest truncate">IA 3.1 Pro</p>
-                <p className="text-[8px] text-neutral-500 font-bold uppercase">Operacional</p>
              </div>
           </div>
           <button onClick={onLogout} className="w-full flex items-center gap-3 px-4 py-3 text-neutral-400 hover:text-red-500 text-[10px] font-black uppercase tracking-widest transition-colors">
