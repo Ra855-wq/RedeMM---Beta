@@ -4,7 +4,7 @@ import {
   Plus, Trash2, Calendar, ClipboardList, CheckCircle2, 
   X, Activity, HeartPulse, Stethoscope, AlertTriangle, 
   FileText, Loader2, Zap, Printer, ArrowRight, Users, Bot,
-  ShieldCheck, Hash, Pill, Clock, User
+  ShieldCheck, Hash, Pill, Clock, User, GraduationCap
 } from 'lucide-react';
 import { GoogleGenAI } from "@google/genai";
 
@@ -44,7 +44,7 @@ export const ConsultationsView: React.FC = () => {
   const [currentPrescriptionHash, setCurrentPrescriptionHash] = useState('');
 
   const generateHash = () => {
-    return 'HSH-' + Math.random().toString(36).substring(2, 8).toUpperCase() + '-' + Math.random().toString(36).substring(2, 4).toUpperCase();
+    return 'PMM-' + Math.random().toString(36).substring(2, 8).toUpperCase() + '-' + Math.random().toString(36).substring(2, 4).toUpperCase();
   };
 
   const addPatient = () => {
@@ -78,7 +78,7 @@ export const ConsultationsView: React.FC = () => {
         Siga rigorosamente esta estrutura:
         - PERFIL CLÍNICO: (2 linhas sobre o manejo padrão)
         - RISCOS IMEDIATOS: (Alertas baseados na idade e patologia)
-        - CONDUTA SUGERIDA: (3 passos técnicos citando protocolos brasileiros)
+        - CONDUTA SUGERIDA: (3 passos técnicos citando protocolos brasileiros do PMMB)
         
         Seja conciso, use linguagem médica de alto nível.`,
       });
@@ -108,17 +108,17 @@ export const ConsultationsView: React.FC = () => {
 
   return (
     <div className="space-y-12 animate-zoom-fade">
-      {/* Header Gestão */}
+      {/* Header Gestão Bolsista */}
       <div className="bg-white p-10 rounded-[3.5rem] border border-slate-100 shadow-surgical flex flex-col md:flex-row justify-between items-center gap-10">
         <div className="flex items-center gap-8">
-          <div className="w-20 h-20 bg-neutral-900 rounded-[2.2rem] flex items-center justify-center text-white shadow-2xl shadow-neutral-900/10">
-            <Users className="w-10 h-10" />
+          <div className="w-20 h-20 bg-neutral-900 rounded-[2.2rem] flex items-center justify-center text-white shadow-2xl">
+            <GraduationCap className="w-10 h-10" />
           </div>
           <div>
-            <h2 className="text-4xl font-black text-slate-900 tracking-tighter">Gestão de Pacientes</h2>
+            <h2 className="text-4xl font-black text-slate-900 tracking-tighter">Gestão PMMB</h2>
             <div className="flex items-center gap-3 mt-1.5">
-              <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse shadow-[0_0_12px_#10b981]"></span>
-              <p className="text-[11px] text-slate-400 font-black uppercase tracking-[0.3em]">Base PMMB · Viana / ES</p>
+              <span className="w-2.5 h-2.5 bg-accent-500 rounded-full animate-pulse shadow-[0_0_12px_#3b82f6]"></span>
+              <p className="text-[11px] text-slate-400 font-black uppercase tracking-[0.3em]">Painel do Bolsista · RMS/MS Ativo</p>
             </div>
           </div>
         </div>
@@ -126,11 +126,10 @@ export const ConsultationsView: React.FC = () => {
           onClick={() => setIsAdding(true)} 
           className="bg-accent-600 hover:bg-accent-700 text-white px-12 py-6 rounded-[2rem] font-black text-xs uppercase tracking-[0.2em] shadow-surgical-xl transition-all flex items-center gap-3 active:scale-95 group"
         >
-          <Plus size={22} className="group-hover:rotate-90 transition-transform duration-500" /> ADICIONAR PACIENTE
+          <Plus size={22} className="group-hover:rotate-90 transition-transform duration-500" /> CADASTRAR PACIENTE
         </button>
       </div>
 
-      {/* Grid de Pacientes */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
         {patients.map((p) => (
           <div key={p.id} className="bg-white p-10 rounded-[4rem] border border-slate-100 shadow-surgical hover:shadow-surgical-xl transition-all duration-700 group relative overflow-hidden">
@@ -158,7 +157,7 @@ export const ConsultationsView: React.FC = () => {
               onClick={() => openQuickRecord(p)}
               className="w-full py-6 bg-slate-50 group-hover:bg-neutral-900 group-hover:text-white rounded-[2rem] text-[11px] font-black uppercase tracking-[0.25em] transition-all flex items-center justify-center gap-3 shadow-sm"
             >
-              <FileText size={18} /> ABRIR PRONTUÁRIO
+              <FileText size={18} /> PRONTUÁRIO BOLSISTA
             </button>
           </div>
         ))}
@@ -176,7 +175,7 @@ export const ConsultationsView: React.FC = () => {
                        <Stethoscope size={28} />
                     </div>
                     <div>
-                       <h3 className="text-3xl font-black tracking-tighter uppercase">Prontuário Rápido</h3>
+                       <h3 className="text-3xl font-black tracking-tighter uppercase">Análise Preceptoria</h3>
                        <p className="text-[10px] font-black text-accent-400 uppercase tracking-[0.4em]">Surgical Intelligence v3.1</p>
                     </div>
                   </div>
@@ -192,13 +191,13 @@ export const ConsultationsView: React.FC = () => {
 
             <div className="flex-1 overflow-y-auto p-10 custom-scroll space-y-10 bg-slate-50/50">
                {isLoadingAnalysis ? (
-                 <div className="py-20 flex flex-col items-center justify-center gap-8"><Loader2 className="animate-spin text-accent-600" size={60} /><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Consultando IA Clínica...</p></div>
+                 <div className="py-20 flex flex-col items-center justify-center gap-8"><Loader2 className="animate-spin text-accent-600" size={60} /><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Consultando IA Preceptoria...</p></div>
                ) : (
                  <div className="space-y-8 animate-zoom-fade">
                     <div className="p-10 bg-white rounded-[3rem] border border-slate-100 shadow-surgical whitespace-pre-wrap text-base font-bold text-slate-800 leading-relaxed italic border-l-8 border-accent-600 pl-12">{aiAnalysis}</div>
                     <div className="grid grid-cols-2 gap-6">
                        <button onClick={() => openPrescription(selectedPatient)} className="flex items-center justify-center gap-4 p-6 bg-neutral-900 text-white rounded-[2rem] text-xs font-black uppercase tracking-[0.2em] hover:bg-accent-600 transition-all shadow-surgical-xl active:scale-95">
-                          <ArrowRight size={20} /> Prescrição Digital
+                          <ArrowRight size={20} /> Prescrição PMMB
                        </button>
                        <button className="flex items-center justify-center gap-4 p-6 bg-white text-accent-600 border border-slate-100 rounded-[2rem] text-xs font-black uppercase tracking-[0.2em] hover:bg-slate-50 transition-all shadow-surgical active:scale-95">
                           <Printer size={20} /> Imprimir Relatório
@@ -211,7 +210,7 @@ export const ConsultationsView: React.FC = () => {
         </div>
       )}
 
-      {/* Modal Receituário - Corrigido */}
+      {/* Modal Receituário */}
       {isPrescriptionOpen && selectedPatient && (
         <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 md:p-12 bg-slate-900/70 backdrop-blur-2xl animate-in fade-in duration-500">
           <div className="bg-white rounded-[4rem] w-full max-w-6xl shadow-surgical-xl border border-white relative overflow-hidden flex flex-col max-h-[96vh] printable-area animate-zoom-fade">
@@ -222,8 +221,8 @@ export const ConsultationsView: React.FC = () => {
                       <Pill size={32} />
                     </div>
                     <div>
-                      <h3 className="text-4xl md:text-5xl font-black tracking-tighter uppercase leading-none">RECEITUÁRIO</h3>
-                      <p className="text-[10px] md:text-[12px] font-black text-accent-400 uppercase tracking-[0.5em] mt-2">Surgical Digital Prescription</p>
+                      <h3 className="text-4xl md:text-5xl font-black tracking-tighter uppercase leading-none">RECEITUÁRIO BOLSISTA</h3>
+                      <p className="text-[10px] md:text-[12px] font-black text-accent-400 uppercase tracking-[0.5em] mt-2">PMMB Digital Prescription · RMS Validated</p>
                     </div>
                   </div>
                   <button onClick={() => setIsPrescriptionOpen(false)} className="p-5 bg-white/10 hover:bg-white/20 rounded-[1.8rem] transition-all">
@@ -233,8 +232,8 @@ export const ConsultationsView: React.FC = () => {
 
                <div className="grid grid-cols-2 md:grid-cols-4 gap-8 md:gap-12 border-t border-white/10 pt-10">
                   <div className="space-y-1"><p className="text-[10px] font-black text-white/30 uppercase tracking-[0.2em]">Paciente</p><p className="text-xl md:text-2xl font-bold truncate">{selectedPatient.name}</p></div>
-                  <div className="space-y-1"><p className="text-[10px] font-black text-white/30 uppercase tracking-[0.2em]">Idade</p><p className="text-xl md:text-2xl font-bold">{selectedPatient.age} Anos</p></div>
-                  <div className="space-y-1"><p className="text-[10px] font-black text-white/30 uppercase tracking-[0.2em]">ID PMMB</p><p className="text-xl md:text-2xl font-bold">#1356</p></div>
+                  <div className="space-y-1"><p className="text-[10px] font-black text-white/30 uppercase tracking-[0.2em]">CRM / RMS</p><p className="text-xl md:text-2xl font-bold truncate">RMS/MS Ativo</p></div>
+                  <div className="space-y-1"><p className="text-[10px] font-black text-white/30 uppercase tracking-[0.2em]">ID PMMB</p><p className="text-xl md:text-2xl font-bold">#772154</p></div>
                   <div className="bg-accent-600/10 p-4 md:p-6 rounded-[1.8rem] border border-accent-600/20">
                     <p className="text-[10px] font-black text-accent-400 uppercase tracking-[0.2em] mb-1">Hash Segura</p>
                     <p className="text-xs md:text-sm font-black font-mono">{currentPrescriptionHash}</p>
@@ -252,16 +251,16 @@ export const ConsultationsView: React.FC = () => {
                           <div className="space-y-6">
                             <div className="space-y-2.5">
                               <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-2">Medicamento</label>
-                              <input type="text" value={item.medication} onChange={(e) => updatePrescriptionItem(item.id, 'medication', e.target.value)} className="w-full bg-white border border-slate-200 rounded-[1.8rem] px-8 py-5 text-lg font-black text-slate-900 focus:ring-4 focus:ring-accent-50 transition-all outline-none" placeholder="Ex: Metformina..." />
+                              <input type="text" value={item.medication} onChange={(e) => updatePrescriptionItem(item.id, 'medication', e.target.value)} className="w-full bg-white border border-slate-200 rounded-[1.8rem] px-8 py-5 text-lg font-black text-slate-900 focus:ring-4 focus:ring-accent-50 transition-all outline-none" />
                             </div>
                             <div className="space-y-2.5">
                               <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-2">Posologia</label>
-                              <input type="text" value={item.dosage} onChange={(e) => updatePrescriptionItem(item.id, 'dosage', e.target.value)} className="w-full bg-white border border-slate-200 rounded-[1.8rem] px-8 py-5 text-base font-bold text-slate-700 focus:ring-4 focus:ring-accent-50 transition-all outline-none" placeholder="Ex: 2x ao dia..." />
+                              <input type="text" value={item.dosage} onChange={(e) => updatePrescriptionItem(item.id, 'dosage', e.target.value)} className="w-full bg-white border border-slate-200 rounded-[1.8rem] px-8 py-5 text-base font-bold text-slate-700 focus:ring-4 focus:ring-accent-50 transition-all outline-none" />
                             </div>
                           </div>
                           <div className="space-y-2.5">
                             <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-2">Observações e Orientações</label>
-                            <textarea value={item.instructions} onChange={(e) => updatePrescriptionItem(item.id, 'instructions', e.target.value)} rows={6} className="w-full bg-white border border-slate-200 rounded-[2.2rem] p-8 text-base font-medium text-slate-600 focus:ring-4 focus:ring-accent-50 transition-all outline-none resize-none leading-relaxed" placeholder="Orientações adicionais de uso..." />
+                            <textarea value={item.instructions} onChange={(e) => updatePrescriptionItem(item.id, 'instructions', e.target.value)} rows={6} className="w-full bg-white border border-slate-200 rounded-[2.2rem] p-8 text-base font-medium text-slate-600 focus:ring-4 focus:ring-accent-50 transition-all outline-none resize-none leading-relaxed" />
                           </div>
                         </div>
                       </div>
@@ -274,13 +273,13 @@ export const ConsultationsView: React.FC = () => {
                   
                   <div className="pt-16 border-t border-slate-100 flex justify-between items-end pb-8">
                      <div className="space-y-2 opacity-30">
-                        <p className="text-[10px] font-black uppercase tracking-[0.4em]">Protocolo Surgical 3.1</p>
+                        <p className="text-[10px] font-black uppercase tracking-[0.4em]">Protocolo PMMB 3.1 · RMS Validado</p>
                         <p className="text-xs font-mono">{currentPrescriptionHash}</p>
                      </div>
                      <div className="text-right space-y-2">
                         <div className="h-1 w-64 bg-neutral-900 ml-auto mb-2"></div>
                         <p className="text-xl font-black text-slate-900 leading-none">Dr. Rafael Araujo</p>
-                        <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">CRM/ES 9872 · Médico Mais Médicos</p>
+                        <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">RMS/MS 123.456.789-00 · Médico Bolsista</p>
                      </div>
                   </div>
                </div>
@@ -288,10 +287,10 @@ export const ConsultationsView: React.FC = () => {
 
             <div className="p-10 md:p-14 bg-slate-50 border-t border-slate-100 flex gap-6 md:gap-8 no-print shrink-0">
                <button onClick={() => window.print()} className="flex-1 bg-neutral-900 text-white py-6 md:py-8 rounded-[2rem] font-black text-xs md:text-sm uppercase tracking-[0.3em] shadow-surgical-xl hover:bg-neutral-800 transition-all flex items-center justify-center gap-4 transform active:scale-95">
-                 <Printer size={24} /> IMPRIMIR RECEITUÁRIO
+                 <Printer size={24} /> IMPRIMIR RECEITUÁRIO BOLSISTA
                </button>
                <button className="flex-1 bg-white text-accent-600 border border-accent-100 py-6 md:py-8 rounded-[2rem] font-black text-xs md:text-sm uppercase tracking-[0.3em] hover:bg-accent-50 transition-all flex items-center justify-center gap-4 transform active:scale-95">
-                 <ShieldCheck size={24} /> AUTENTICAR DIGITALMENTE
+                 <ShieldCheck size={24} /> ASSINATURA DIGITAL RMS
                </button>
             </div>
           </div>

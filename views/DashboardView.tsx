@@ -11,7 +11,7 @@ import { ConsultationsView } from './ConsultationsView';
 import { CollaborationView } from './CollaborationView';
 import { ProfileView } from './ProfileView';
 import { LiveAssistantView } from './LiveAssistantView';
-import { X } from 'lucide-react';
+import { X, Sparkles, Stethoscope, HeartPulse, Activity, BrainCircuit } from 'lucide-react';
 
 interface DashboardViewProps {
   onLogout: () => void;
@@ -41,7 +41,39 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onLogout, eyeRest,
     switch(activePage) {
       case 'home':
         return (
-          <div className="animate-zoom-fade space-y-10">
+          <div className="animate-zoom-fade space-y-12">
+            {/* Hero Section with Medical Symbols */}
+            <div className="relative overflow-hidden bg-neutral-900 rounded-[4rem] p-12 md:p-20 text-white shadow-surgical-xl">
+               <div className="absolute inset-0 opacity-10 pointer-events-none">
+                 <div className="grid grid-cols-6 gap-20 -rotate-12 translate-x-[-10%] translate-y-[-10%]">
+                    {Array.from({length: 24}).map((_, i) => {
+                      const Icons = [Stethoscope, HeartPulse, Activity, BrainCircuit];
+                      const Icon = Icons[i % Icons.length];
+                      return <Icon key={i} size={80} strokeWidth={1} />;
+                    })}
+                 </div>
+               </div>
+               
+               <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-12">
+                  <div className="max-w-2xl text-center md:text-left">
+                     <div className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-500/20 rounded-full border border-emerald-500/30 mb-8">
+                        <Sparkles size={14} className="text-emerald-400" />
+                        <span className="text-[10px] font-black uppercase tracking-[0.3em] text-emerald-400">Inteligência Cirúrgica Ativa</span>
+                     </div>
+                     <h2 className="text-5xl md:text-7xl font-black tracking-tighter leading-none mb-6">
+                        Olá, {userName.split(' ')[1]}
+                     </h2>
+                     <p className="text-lg text-neutral-400 font-medium leading-relaxed max-w-xl italic">
+                        Sua rede de suporte profissional Mais Médicos está totalmente sincronizada e pronta para auxiliar no raciocínio clínico.
+                     </p>
+                  </div>
+                  <div className="w-48 h-48 md:w-64 md:h-64 bg-white/5 backdrop-blur-3xl rounded-full border border-white/10 flex items-center justify-center relative animate-float">
+                     <BrainCircuit size={80} className="text-emerald-500" />
+                     <div className="absolute inset-0 bg-emerald-500/20 blur-3xl rounded-full -z-10"></div>
+                  </div>
+               </div>
+            </div>
+
             <DashboardCards onNavigate={setActivePage} />
             <DashboardLists />
             <StatisticsSection />
