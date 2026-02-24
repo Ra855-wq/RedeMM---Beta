@@ -10,18 +10,46 @@ interface LoginViewProps {
 }
 
 export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
+  const [isRegistering, setIsRegistering] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [name, setName] = useState('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (username === 'dlx' && password === 'bmw32') {
-      onLogin();
-    } else {
-      setError('Credenciais PMMB inválidas. Verifique seu RMS e senha.');
-      setTimeout(() => setError(''), 3000);
+    setError('');
+    setSuccess('');
+    
+    try {
+      const endpoint = isRegistering ? '/api/register' : '/api/login';
+      const body = isRegistering ? { name, username, password } : { username, password };
+      
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        if (isRegistering) {
+          setSuccess(data.message);
+          setIsRegistering(false);
+        } else {
+          localStorage.setItem('redemm_user', JSON.stringify(data.user));
+          onLogin();
+        }
+      } else {
+        setError(data.error || 'Erro ao processar. Tente novamente.');
+        setTimeout(() => setError(''), 5000);
+      }
+    } catch (err) {
+      setError('Erro de conexão com o servidor.');
+      setTimeout(() => setError(''), 5000);
     }
   };
 
@@ -76,8 +104,12 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
 
         <div className="flex-1 bg-white p-12 sm:p-20 flex flex-col justify-center">
           <div className="mb-12">
-            <h2 className="text-3xl font-black text-slate-900 tracking-tight mb-2">Portal do Bolsista</h2>
-            <p className="text-sm font-bold text-slate-400">Entre com seu ID Ministerial/RMS para iniciar.</p>
+            <h2 className="text-3xl font-black text-slate-900 tracking-tight mb-2">
+              {isRegistering ? 'Solicitar Acesso' : 'Portal do Bolsista'}
+            </h2>
+            <p className="text-sm font-bold text-slate-400">
+              {isRegistering ? 'Preencha os dados para análise do moderador.' : 'Entre com seu ID Ministerial/RMS para iniciar.'}
+            </p>
           </div>
 
           {error && (
@@ -87,7 +119,31 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
             </div>
           )}
 
+          {success && (
+            <div className="mb-8 p-4 bg-emerald-50 border border-emerald-100 rounded-2xl flex items-center gap-3">
+              <ShieldCheck className="text-emerald-500 shrink-0" size={18} />
+              <p className="text-[11px] font-black text-emerald-600 uppercase tracking-widest">{success}</p>
+            </div>
+          )}
+
           <form onSubmit={handleSubmit} className="space-y-6">
+            {isRegistering && (
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nome Completo</label>
+                <div className="relative group">
+                  <User className="absolute left-5 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-300 group-focus-within:text-accent-600 transition-colors" />
+                  <input
+                    type="text"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className="block w-full pl-14 pr-4 py-6 border border-slate-100 rounded-3xl text-slate-800 bg-slate-50/50 placeholder-slate-300 focus:outline-none focus:ring-4 focus:ring-accent-50 focus:bg-white transition-all font-bold text-lg"
+                    placeholder="Seu nome..."
+                    required
+                  />
+                </div>
+              </div>
+            )}
+
             <div className="space-y-2">
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">RMS ou ID Ministerial</label>
               <div className="relative group">
@@ -129,8 +185,18 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
               type="submit"
               className="w-full py-6 bg-neutral-900 text-white rounded-3xl font-black text-xs uppercase tracking-[0.3em] shadow-[0_20px_40px_rgba(0,0,0,0.1)] hover:bg-accent-600 transition-all transform active:scale-[0.98] mt-4"
             >
-              Autenticar Fellowship
+              {isRegistering ? 'Enviar Solicitação' : 'Autenticar Fellowship'}
             </button>
+
+            <div className="text-center mt-6">
+              <button
+                type="button"
+                onClick={() => setIsRegistering(!isRegistering)}
+                className="text-[10px] font-black text-accent-600 uppercase tracking-widest hover:underline"
+              >
+                {isRegistering ? 'Já tenho acesso? Entrar' : 'Não tem acesso? Solicitar Credenciais'}
+              </button>
+            </div>
           </form>
         </div>
       </div>

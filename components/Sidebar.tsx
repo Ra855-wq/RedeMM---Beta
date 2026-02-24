@@ -2,17 +2,19 @@
 import React from 'react';
 import { 
   Home, Stethoscope, MapPin, User, LogOut,
-  BrainCircuit, MessageSquare, HelpCircle, HeartPulse, Zap, Users, Sparkles
+  BrainCircuit, MessageSquare, HelpCircle, HeartPulse, Zap, Users, Sparkles, Shield
 } from 'lucide-react';
+import { User as UserType } from '../types';
 
 interface SidebarProps {
   onLogout: () => void;
   activePage: string;
   setActivePage: (page: string) => void;
   isMobile?: boolean;
+  user?: UserType;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ onLogout, activePage, setActivePage, isMobile }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ onLogout, activePage, setActivePage, isMobile, user }) => {
   const menuItems = [
     { id: 'home', icon: Home, label: 'Início' },
     { id: 'assistant', icon: BrainCircuit, label: 'Cérebro Clínico' },
@@ -22,6 +24,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ onLogout, activePage, setActiv
     { id: 'map', icon: HeartPulse, label: 'Unidade de Apoio' },
     { id: 'profile', icon: User, label: 'Perfil' },
   ];
+
+  if (user?.role === 'admin') {
+    menuItems.push({ id: 'admin', icon: Shield, label: 'Moderador' });
+  }
 
   return (
     <aside className={`${isMobile ? 'w-full h-full' : 'hidden md:flex w-72 fixed h-screen p-4'} flex-col bg-transparent z-50`}>

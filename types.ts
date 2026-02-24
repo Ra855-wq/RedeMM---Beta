@@ -1,7 +1,10 @@
 export interface User {
   id: string;
   name: string;
-  role: string;
+  username: string;
+  password?: string;
+  role: 'admin' | 'doctor';
+  status: 'active' | 'pending';
   avatarUrl?: string;
 }
 

@@ -2,10 +2,18 @@
 import React, { useState, useEffect } from 'react';
 import { LoginView } from './views/LoginView';
 import { DashboardView } from './views/DashboardView';
+import { User } from './types';
 
 const App: React.FC = () => {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
   const [eyeRest, setEyeRest] = useState(false);
+
+  useEffect(() => {
+    const savedUser = localStorage.getItem('redemm_user');
+    if (savedUser) {
+      setUser(JSON.parse(savedUser));
+    }
+  }, []);
 
   useEffect(() => {
     if (eyeRest) {
@@ -15,16 +23,25 @@ const App: React.FC = () => {
     }
   }, [eyeRest]);
 
+  const handleLogout = () => {
+    localStorage.removeItem('redemm_user');
+    setUser(null);
+  };
+
   return (
     <div className="antialiased min-h-screen">
-      {isLoggedIn ? (
+      {user ? (
         <DashboardView 
-          onLogout={() => setIsLoggedIn(false)} 
+          user={user}
+          onLogout={handleLogout} 
           eyeRest={eyeRest} 
           setEyeRest={setEyeRest} 
         />
       ) : (
-        <LoginView onLogin={() => setIsLoggedIn(true)} />
+        <LoginView onLogin={() => {
+          const savedUser = localStorage.getItem('redemm_user');
+          if (savedUser) setUser(JSON.parse(savedUser));
+        }} />
       )}
     </div>
   );

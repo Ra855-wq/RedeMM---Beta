@@ -13,7 +13,11 @@ import { ProfileView } from './ProfileView';
 import { LiveAssistantView } from './LiveAssistantView';
 import { X, Sparkles, Stethoscope, HeartPulse, Activity, BrainCircuit } from 'lucide-react';
 
+import { AdminView } from './AdminView';
+import { User as UserType } from '../types';
+
 interface DashboardViewProps {
+  user: UserType;
   onLogout: () => void;
   eyeRest: boolean;
   setEyeRest: (val: boolean) => void;
@@ -21,13 +25,10 @@ interface DashboardViewProps {
 
 const STORAGE_KEY = 'redemm_profile_data';
 
-export const DashboardView: React.FC<DashboardViewProps> = ({ onLogout, eyeRest, setEyeRest }) => {
+export const DashboardView: React.FC<DashboardViewProps> = ({ user, onLogout, eyeRest, setEyeRest }) => {
   const [activePage, setActivePage] = useState('home');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [userName, setUserName] = useState(() => {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    return saved ? JSON.parse(saved).name : 'Dr. Rafael Araujo';
-  });
+  const [userName, setUserName] = useState(user.name);
 
   useEffect(() => {
     const handleProfileUpdate = (e: any) => {
@@ -85,6 +86,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onLogout, eyeRest,
       case 'consultations': return <ConsultationsView />;
       case 'collaboration': return <CollaborationView />;
       case 'profile': return <ProfileView />;
+      case 'admin': return <AdminView />;
       default: return <div className="p-20 text-center font-bold text-slate-400">Módulo em desenvolvimento</div>;
     }
   };
@@ -93,6 +95,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onLogout, eyeRest,
     <div className={`min-h-screen flex justify-center ${eyeRest ? 'bg-[#f8f5f0]' : 'bg-[#f8fafc]'}`}>
       <div className="w-full max-w-[1600px] flex flex-col md:flex-row relative">
         <Sidebar 
+          user={user}
           onLogout={onLogout} 
           activePage={activePage} 
           setActivePage={setActivePage} 
@@ -102,7 +105,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onLogout, eyeRest,
           <div className="fixed inset-0 bg-neutral-900/60 backdrop-blur-md z-[70] md:hidden" onClick={() => setIsMobileMenuOpen(false)}>
             <div className="w-80 h-full bg-white shadow-surgical-xl" onClick={e => e.stopPropagation()}>
               <div className="p-8 flex justify-end"><button onClick={() => setIsMobileMenuOpen(false)} className="p-2 hover:bg-slate-100 rounded-full transition-all"><X size={24} /></button></div>
-              <Sidebar onLogout={onLogout} activePage={activePage} setActivePage={setActivePage} isMobile />
+              <Sidebar user={user} onLogout={onLogout} activePage={activePage} setActivePage={setActivePage} isMobile />
             </div>
           </div>
         )}
