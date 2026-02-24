@@ -1,5 +1,5 @@
 {
-  "name": "RedeMM - Suporte Profissional PMMB",
+  "name": "RedeMM - Beta 1.0",
   "description": "Plataforma de suporte clínico, emocional e colaborativo para médicos do Programa Mais Médicos.",
   "requestFramePermissions": [
     "geolocation",

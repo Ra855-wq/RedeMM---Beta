@@ -4,6 +4,11 @@ import cors from "cors";
 import bodyParser from "body-parser";
 import { createServer as createViteServer } from "vite";
 import { User } from "./types";
+import path from "path";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = 3000;
@@ -90,6 +95,29 @@ app.patch("/api/users/:id", (req, res) => {
   }
 });
 
+app.get("/api/profile/:username", (req, res) => {
+  const { username } = req.params;
+  const user = users.find(u => u.username === username);
+  if (user) {
+    const { password, ...u } = user;
+    res.json(u);
+  } else {
+    res.status(404).json({ error: "Perfil não encontrado" });
+  }
+});
+
+app.post("/api/profile/:username", (req, res) => {
+  const { username } = req.params;
+  const index = users.findIndex(u => u.username === username);
+  if (index !== -1) {
+    // In a real app, we'd have a separate profile table or more fields in User
+    // For this beta, we'll just acknowledge the save
+    res.json({ message: "Perfil atualizado com sucesso" });
+  } else {
+    res.status(404).json({ error: "Usuário não encontrado" });
+  }
+});
+
 app.delete("/api/users/:id", (req, res) => {
   const { id } = req.params;
   users = users.filter(u => u.id !== id);
@@ -105,9 +133,10 @@ async function setupVite() {
     });
     app.use(vite.middlewares);
   } else {
-    app.use(express.static("dist"));
+    const distPath = path.resolve(__dirname, "dist");
+    app.use(express.static(distPath));
     app.get("*", (req, res) => {
-      res.sendFile("dist/index.html", { root: "." });
+      res.sendFile(path.resolve(distPath, "index.html"));
     });
   }
 

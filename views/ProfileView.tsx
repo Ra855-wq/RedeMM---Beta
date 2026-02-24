@@ -78,7 +78,7 @@ const DEFAULT_PROFILE = {
 };
 
 export const ProfileView: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'info' | 'fellowship' | 'security' | 'preferences'>('info');
+  const [activeTab, setActiveTab] = useState<'info' | 'fellowship' | 'security' | 'preferences' | 'notifications'>('info');
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   
@@ -87,16 +87,54 @@ export const ProfileView: React.FC = () => {
     return saved ? JSON.parse(saved) : DEFAULT_PROFILE;
   });
 
-  const handleSave = () => {
+  const [notifications, setNotifications] = useState({
+    preceptoria: true,
+    relatorios: true,
+    forum: false,
+    ia_updates: true,
+    email_digest: false,
+    sms_alerts: false
+  });
+
+  const [appearance, setAppearance] = useState({
+    darkMode: false,
+    accentColor: 'blue',
+    compactMode: false
+  });
+
+  const handleSave = async () => {
     setIsSaving(true);
-    setTimeout(() => {
+    try {
+      const user = JSON.parse(localStorage.getItem('redemm_user') || '{}');
+      if (user.username) {
+        await fetch(`/api/profile/${user.username}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ profile, notifications, appearance })
+        });
+      }
+      
       localStorage.setItem(STORAGE_KEY, JSON.stringify(profile));
+      localStorage.setItem('redemm_notifications', JSON.stringify(notifications));
+      localStorage.setItem('redemm_appearance', JSON.stringify(appearance));
+      
       setIsSaving(false);
       setSaveSuccess(true);
       window.dispatchEvent(new CustomEvent('profileUpdated', { detail: profile }));
       setTimeout(() => setSaveSuccess(false), 3000);
-    }, 1200);
+    } catch (err) {
+      console.error("Erro ao salvar perfil", err);
+      setIsSaving(false);
+    }
   };
+
+  useEffect(() => {
+    const savedNotifications = localStorage.getItem('redemm_notifications');
+    if (savedNotifications) setNotifications(JSON.parse(savedNotifications));
+    
+    const savedAppearance = localStorage.getItem('redemm_appearance');
+    if (savedAppearance) setAppearance(JSON.parse(savedAppearance));
+  }, []);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, certId: string) => {
     const file = e.target.files?.[0];
@@ -148,7 +186,8 @@ export const ProfileView: React.FC = () => {
     { id: 'info', label: 'Dados do Bolsista', icon: User },
     { id: 'fellowship', label: 'Produção & Fellowship', icon: GraduationCap },
     { id: 'security', label: 'Segurança & Acesso', icon: ShieldCheck },
-    { id: 'preferences', label: 'Preferências', icon: Bell },
+    { id: 'notifications', label: 'Notificações', icon: Bell },
+    { id: 'preferences', label: 'Aparência', icon: Zap },
   ];
 
   const renderTabContent = () => {
@@ -378,28 +417,93 @@ export const ProfileView: React.FC = () => {
              </div>
           </div>
         );
-      case 'preferences':
+      case 'notifications':
         return (
           <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+            <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.4em] mb-8 flex items-center gap-3">
+              <div className="w-1.5 h-1.5 bg-accent-500 rounded-full"></div> CANAIS DE COMUNICAÇÃO
+            </h4>
             <div className="grid grid-cols-1 gap-4">
               {[
-                { title: 'Notificações de Preceptoria', desc: 'Alertas de supervisão e feedbacks pedagógicos.', active: true },
-                { title: 'Relatórios de Atividades', desc: 'Envio automático de logs para o Ministério da Saúde.', active: true },
-                { title: 'Fórum de Discussão PMM', desc: 'Habilitar notificações de casos clínicos da rede bolsista.', active: true }
-              ].map((pref, i) => (
-                <div key={i} className="flex items-center justify-between p-8 bg-white border border-slate-100 rounded-[2.5rem] shadow-sm">
+                { id: 'preceptoria', title: 'Notificações de Preceptoria', desc: 'Alertas de supervisão e feedbacks pedagógicos.' },
+                { id: 'relatorios', title: 'Relatórios de Atividades', desc: 'Envio automático de logs para o Ministério da Saúde.' },
+                { id: 'forum', title: 'Fórum de Discussão PMM', desc: 'Habilitar notificações de casos clínicos da rede bolsista.' },
+                { id: 'ia_updates', title: 'Atualizações da IA', desc: 'Novos protocolos e descobertas do Cérebro Clínico.' },
+                { id: 'email_digest', title: 'Resumo Semanal por E-mail', desc: 'Compilado de atividades e pendências.' },
+                { id: 'sms_alerts', title: 'Alertas Críticos via SMS', desc: 'Notificações urgentes de saúde pública.' }
+              ].map((pref) => (
+                <div key={pref.id} className="flex items-center justify-between p-8 bg-white border border-slate-100 rounded-[2.5rem] shadow-sm">
                   <div className="flex items-center gap-6">
-                    <div className={`w-3 h-3 rounded-full ${pref.active ? 'bg-accent-500 animate-pulse' : 'bg-slate-200'}`}></div>
+                    <div className={`w-3 h-3 rounded-full ${(notifications as any)[pref.id] ? 'bg-accent-500 animate-pulse' : 'bg-slate-200'}`}></div>
                     <div>
                       <h6 className="font-bold text-slate-800 text-base">{pref.title}</h6>
                       <p className="text-xs text-slate-400 font-medium mt-0.5">{pref.desc}</p>
                     </div>
                   </div>
-                  <button className={`w-14 h-7 rounded-full transition-all relative ${pref.active ? 'bg-neutral-900' : 'bg-slate-200'}`}>
-                    <div className={`absolute top-1 w-5 h-5 bg-white rounded-full transition-all ${pref.active ? 'right-1' : 'left-1'}`}></div>
+                  <button 
+                    onClick={() => setNotifications(prev => ({ ...prev, [pref.id]: !(prev as any)[pref.id] }))}
+                    className={`w-14 h-7 rounded-full transition-all relative ${(notifications as any)[pref.id] ? 'bg-neutral-900' : 'bg-slate-200'}`}
+                  >
+                    <div className={`absolute top-1 w-5 h-5 bg-white rounded-full transition-all ${(notifications as any)[pref.id] ? 'right-1' : 'left-1'}`}></div>
                   </button>
                 </div>
               ))}
+            </div>
+          </div>
+        );
+      case 'preferences':
+        return (
+          <div className="space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
+            <div>
+              <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.4em] mb-8 flex items-center gap-3">
+                <div className="w-1.5 h-1.5 bg-accent-500 rounded-full"></div> CUSTOMIZAÇÃO VISUAL
+              </h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="p-8 bg-white border border-slate-100 rounded-[2.5rem] shadow-sm">
+                  <h6 className="font-bold text-slate-800 text-base mb-4">Modo Escuro (Beta)</h6>
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs text-slate-400 font-medium">Otimizado para plantões noturnos.</p>
+                    <button 
+                      onClick={() => setAppearance(prev => ({ ...prev, darkMode: !prev.darkMode }))}
+                      className={`w-14 h-7 rounded-full transition-all relative ${appearance.darkMode ? 'bg-neutral-900' : 'bg-slate-200'}`}
+                    >
+                      <div className={`absolute top-1 w-5 h-5 bg-white rounded-full transition-all ${appearance.darkMode ? 'right-1' : 'left-1'}`}></div>
+                    </button>
+                  </div>
+                </div>
+                <div className="p-8 bg-white border border-slate-100 rounded-[2.5rem] shadow-sm">
+                  <h6 className="font-bold text-slate-800 text-base mb-4">Interface Compacta</h6>
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs text-slate-400 font-medium">Maximiza a densidade de informação.</p>
+                    <button 
+                      onClick={() => setAppearance(prev => ({ ...prev, compactMode: !prev.compactMode }))}
+                      className={`w-14 h-7 rounded-full transition-all relative ${appearance.compactMode ? 'bg-neutral-900' : 'bg-slate-200'}`}
+                    >
+                      <div className={`absolute top-1 w-5 h-5 bg-white rounded-full transition-all ${appearance.compactMode ? 'right-1' : 'left-1'}`}></div>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.4em] mb-8 flex items-center gap-3">
+                <div className="w-1.5 h-1.5 bg-accent-500 rounded-full"></div> COR DE ACENTO
+              </h4>
+              <div className="flex flex-wrap gap-4">
+                {['blue', 'emerald', 'violet', 'amber', 'rose', 'slate'].map((color) => (
+                  <button
+                    key={color}
+                    onClick={() => setAppearance(prev => ({ ...prev, accentColor: color }))}
+                    className={`w-12 h-12 rounded-2xl transition-all flex items-center justify-center border-4 ${
+                      appearance.accentColor === color ? 'border-neutral-900 scale-110' : 'border-transparent'
+                    }`}
+                    style={{ backgroundColor: color === 'blue' ? '#3b82f6' : color === 'emerald' ? '#10b981' : color === 'violet' ? '#8b5cf6' : color === 'amber' ? '#f59e0b' : color === 'rose' ? '#f43f5e' : '#64748b' }}
+                  >
+                    {appearance.accentColor === color && <CheckCircle2 size={20} className="text-white" />}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         );
