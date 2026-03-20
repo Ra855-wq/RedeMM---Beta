@@ -4,6 +4,7 @@ import {
   Lock, User, Eye, EyeOff, ShieldCheck, AlertCircle, 
   Stethoscope, HeartPulse, Pill, Activity, Dna, Syringe, BrainCircuit, GraduationCap
 } from 'lucide-react';
+import { safeStorage } from '../utils/storage';
 
 interface LoginViewProps {
   onLogin: () => void;
@@ -40,7 +41,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
           setSuccess(data.message);
           setIsRegistering(false);
         } else {
-          localStorage.setItem('redemm_user', JSON.stringify(data.user));
+          safeStorage.setItem('redemm_user', JSON.stringify(data.user));
           onLogin();
         }
       } else {

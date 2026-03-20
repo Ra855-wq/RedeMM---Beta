@@ -3,13 +3,14 @@ import React, { useState, useEffect } from 'react';
 import { LoginView } from './views/LoginView';
 import { DashboardView } from './views/DashboardView';
 import { User } from './types';
+import { safeStorage } from './utils/storage';
 
 const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
   const [eyeRest, setEyeRest] = useState(false);
 
   useEffect(() => {
-    const savedUser = localStorage.getItem('redemm_user');
+    const savedUser = safeStorage.getItem('redemm_user');
     if (savedUser) {
       setUser(JSON.parse(savedUser));
     }
@@ -24,7 +25,7 @@ const App: React.FC = () => {
   }, [eyeRest]);
 
   const handleLogout = () => {
-    localStorage.removeItem('redemm_user');
+    safeStorage.removeItem('redemm_user');
     setUser(null);
   };
 
@@ -39,7 +40,7 @@ const App: React.FC = () => {
         />
       ) : (
         <LoginView onLogin={() => {
-          const savedUser = localStorage.getItem('redemm_user');
+          const savedUser = safeStorage.getItem('redemm_user');
           if (savedUser) setUser(JSON.parse(savedUser));
         }} />
       )}

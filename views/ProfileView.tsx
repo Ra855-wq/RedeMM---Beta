@@ -32,6 +32,7 @@ import {
   Trash2,
   ExternalLink
 } from 'lucide-react';
+import { safeStorage } from '../utils/storage';
 
 const STORAGE_KEY = 'redemm_profile_data';
 
@@ -83,7 +84,7 @@ export const ProfileView: React.FC = () => {
   const [saveSuccess, setSaveSuccess] = useState(false);
   
   const [profile, setProfile] = useState(() => {
-    const saved = localStorage.getItem(STORAGE_KEY);
+    const saved = safeStorage.getItem(STORAGE_KEY);
     return saved ? JSON.parse(saved) : DEFAULT_PROFILE;
   });
 
@@ -105,7 +106,7 @@ export const ProfileView: React.FC = () => {
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      const user = JSON.parse(localStorage.getItem('redemm_user') || '{}');
+      const user = JSON.parse(safeStorage.getItem('redemm_user') || '{}');
       if (user.username) {
         await fetch(`/api/profile/${user.username}`, {
           method: 'POST',
@@ -114,9 +115,9 @@ export const ProfileView: React.FC = () => {
         });
       }
       
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(profile));
-      localStorage.setItem('redemm_notifications', JSON.stringify(notifications));
-      localStorage.setItem('redemm_appearance', JSON.stringify(appearance));
+      safeStorage.setItem(STORAGE_KEY, JSON.stringify(profile));
+      safeStorage.setItem('redemm_notifications', JSON.stringify(notifications));
+      safeStorage.setItem('redemm_appearance', JSON.stringify(appearance));
       
       setIsSaving(false);
       setSaveSuccess(true);
@@ -129,10 +130,10 @@ export const ProfileView: React.FC = () => {
   };
 
   useEffect(() => {
-    const savedNotifications = localStorage.getItem('redemm_notifications');
+    const savedNotifications = safeStorage.getItem('redemm_notifications');
     if (savedNotifications) setNotifications(JSON.parse(savedNotifications));
     
-    const savedAppearance = localStorage.getItem('redemm_appearance');
+    const savedAppearance = safeStorage.getItem('redemm_appearance');
     if (savedAppearance) setAppearance(JSON.parse(savedAppearance));
   }, []);
 
