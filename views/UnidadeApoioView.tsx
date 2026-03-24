@@ -6,6 +6,8 @@ import {
 } from 'lucide-react';
 import { GoogleGenAI, Modality } from "@google/genai";
 
+import { safeStorage } from '../utils/storage';
+
 declare const L: any;
 
 // Helper para decodificar base64 (usado no TTS)
@@ -48,6 +50,10 @@ export const UnidadeApoioView: React.FC = () => {
   const clusterGroupRef = useRef<any>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
 
+  // Coordenadas padrão (Vitória, ES - Região de atuação do bolsista padrão)
+  const DEFAULT_LAT = -20.3155;
+  const DEFAULT_LNG = -40.3128;
+
   useEffect(() => {
     if (!mapContainerRef.current) return;
 
@@ -56,7 +62,7 @@ export const UnidadeApoioView: React.FC = () => {
         preferCanvas: true,
         zoomControl: false,
         attributionControl: false
-      }).setView([-15.7975, -47.8919], 4);
+      }).setView([DEFAULT_LAT, DEFAULT_LNG], 12);
 
       L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_labels_under/{z}/{x}/{y}{r}.png', {
         maxZoom: 20
@@ -119,7 +125,17 @@ export const UnidadeApoioView: React.FC = () => {
             L.marker([coords.lat, coords.lng], { icon: userIcon }).addTo(mapRef.current);
           }
         },
-        (err) => console.error("Erro GPS:", err)
+        (err) => {
+          console.error("Erro GPS:", err);
+          // Se falhar o GPS, tenta centralizar no perfil do usuário se disponível
+          const profileData = safeStorage.getItem('redemm_profile_data');
+          if (profileData) {
+            const profile = JSON.parse(profileData);
+            if (profile.ubs && profile.ubs.includes('ES')) {
+              mapRef.current?.setView([DEFAULT_LAT, DEFAULT_LNG], 12);
+            }
+          }
+        }
       );
     }
   };
@@ -180,8 +196,8 @@ export const UnidadeApoioView: React.FC = () => {
           id: idx,
           title: c.maps.title,
           uri: c.maps.uri,
-          lat: location ? location.lat + (Math.random() - 0.5) * 0.05 : -15.79 + (Math.random() - 0.5) * 0.2,
-          lng: location ? location.lng + (Math.random() - 0.5) * 0.05 : -47.89 + (Math.random() - 0.5) * 0.2
+          lat: location ? location.lat + (Math.random() - 0.5) * 0.05 : DEFAULT_LAT + (Math.random() - 0.5) * 0.2,
+          lng: location ? location.lng + (Math.random() - 0.5) * 0.05 : DEFAULT_LNG + (Math.random() - 0.5) * 0.2
         }));
       setResults(extracted);
       if (clusterGroupRef.current && mapRef.current) {
