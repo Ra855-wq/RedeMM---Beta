@@ -88,7 +88,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
               REDE<span className="text-accent-500">MM</span>
             </h1>
             <p className="text-accent-500/60 font-black uppercase tracking-[0.4em] text-[10px] mb-8">
-              Surgical Intelligence v3.1 · PMMB
+              Surgical Intelligence v0.1.0-beta · PMMB
             </p>
             <div className="space-y-6">
               <div className="flex items-center gap-4 text-white/40">

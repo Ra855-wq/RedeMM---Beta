@@ -3,7 +3,7 @@ import express from "express";
 import cors from "cors";
 import bodyParser from "body-parser";
 import { createServer as createViteServer } from "vite";
-import { User } from "./types";
+import type { User } from "./types.ts";
 import path from "path";
 import { fileURLToPath } from "url";
 
@@ -21,16 +21,16 @@ let users: User[] = [
   {
     id: "1",
     name: "Moderador Sistema",
-    username: "admin",
-    password: "adminpassword",
+    username: "moderador.rede.mm",
+    password: "PMMB$Moderador!2025#",
     role: "admin",
     status: "active"
   },
   {
     id: "2",
     name: "Dr. Rafael Araujo",
-    username: "dlx",
-    password: "bmw32",
+    username: "beta.tester.pmmb",
+    password: "RedeMM#Beta@v0.1.0-Safe",
     role: "doctor",
     status: "active"
   }
@@ -135,7 +135,7 @@ async function setupVite() {
   } else {
     const distPath = path.resolve(__dirname, "dist");
     app.use(express.static(distPath));
-    app.get("*", (req, res) => {
+    app.get("*all", (req, res) => {
       res.sendFile(path.resolve(distPath, "index.html"));
     });
   }

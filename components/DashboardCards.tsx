@@ -41,28 +41,28 @@ export const DashboardCards: React.FC<DashboardCardsProps> = ({ onNavigate }) =>
   ];
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-10">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
       {cards.map((card, index) => (
         <div 
           key={index} 
           onClick={() => onNavigate(card.id)}
-          className={`floating-card group bg-white border border-slate-100 p-12 rounded-[4rem] flex flex-col items-center text-center cursor-pointer shadow-surgical hover:shadow-surgical-xl transition-all duration-700 relative overflow-hidden`}
+          className={`floating-card group bg-white border border-slate-100 p-8 rounded-[2.5rem] flex flex-col items-center text-center cursor-pointer shadow-surgical hover:shadow-surgical-xl transition-all duration-700 relative overflow-hidden`}
         >
-          <div className="absolute top-6 right-6 opacity-0 group-hover:opacity-100 transition-opacity">
-            <Sparkles className="text-emerald-500 animate-pulse" size={20} />
+          <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
+            <Sparkles className="text-emerald-500 animate-pulse" size={16} />
           </div>
           
-          <div className={`w-28 h-28 bg-slate-50 rounded-[2.5rem] flex items-center justify-center mb-10 group-hover:bg-neutral-900 group-hover:text-white transition-all duration-700 shadow-inner ${card.color}`}>
-            <card.icon size={48} strokeWidth={1.5} />
+          <div className={`w-20 h-20 bg-slate-50 rounded-2xl flex items-center justify-center mb-6 group-hover:bg-neutral-900 group-hover:text-white transition-all duration-700 shadow-inner ${card.color}`}>
+            <card.icon size={36} strokeWidth={1.5} />
           </div>
           
-          <h3 className="text-3xl font-black text-slate-900 mb-4 tracking-tighter leading-tight">{card.title}</h3>
-          <p className="text-sm text-slate-400 mb-12 px-2 leading-relaxed font-bold h-12 line-clamp-2 italic uppercase tracking-widest text-[10px]">
+          <h3 className="text-2xl font-black text-slate-900 mb-3 tracking-tighter leading-tight">{card.title}</h3>
+          <p className="text-[11px] text-slate-400 mb-8 px-2 leading-relaxed font-bold h-10 line-clamp-2 italic uppercase tracking-widest">
             {card.description}
           </p>
           
-          <button className="w-full bg-neutral-900 text-white font-black py-6 rounded-[2rem] transition-all duration-300 text-[11px] uppercase tracking-[0.25em] shadow-xl group-hover:bg-emerald-600 flex items-center justify-center gap-3 active:scale-95">
-            <Zap size={14} /> {card.action}
+          <button className="w-full bg-neutral-900 text-white font-black py-4 rounded-2xl transition-all duration-300 text-[10px] uppercase tracking-[0.2em] shadow-xl group-hover:bg-emerald-600 flex items-center justify-center gap-2 active:scale-95">
+            <Zap size={12} /> {card.action}
           </button>
         </div>
       ))}

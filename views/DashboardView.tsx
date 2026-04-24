@@ -42,34 +42,34 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ user, onLogout, ey
     switch(activePage) {
       case 'home':
         return (
-          <div className="animate-zoom-fade space-y-12">
+          <div className="animate-zoom-fade space-y-10">
             {/* Hero Section with Medical Symbols */}
-            <div className="relative overflow-hidden bg-neutral-900 rounded-[4rem] p-12 md:p-20 text-white shadow-surgical-xl">
+            <div className="relative overflow-hidden bg-neutral-900 rounded-[2.5rem] p-8 md:p-14 text-white shadow-surgical-xl">
                <div className="absolute inset-0 opacity-10 pointer-events-none">
-                 <div className="grid grid-cols-6 gap-20 -rotate-12 translate-x-[-10%] translate-y-[-10%]">
+                 <div className="grid grid-cols-6 gap-16 -rotate-12 translate-x-[-10%] translate-y-[-10%]">
                     {Array.from({length: 24}).map((_, i) => {
                       const Icons = [Stethoscope, HeartPulse, Activity, BrainCircuit];
                       const Icon = Icons[i % Icons.length];
-                      return <Icon key={i} size={80} strokeWidth={1} />;
+                      return <Icon key={i} size={60} strokeWidth={1} />;
                     })}
                  </div>
                </div>
                
-               <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-12">
+               <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-10">
                   <div className="max-w-2xl text-center md:text-left">
-                     <div className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-500/20 rounded-full border border-emerald-500/30 mb-8">
-                        <Sparkles size={14} className="text-emerald-400" />
-                        <span className="text-[10px] font-black uppercase tracking-[0.3em] text-emerald-400">Inteligência Cirúrgica Ativa</span>
+                     <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-emerald-500/20 rounded-full border border-emerald-500/30 mb-6">
+                        <Sparkles size={12} className="text-emerald-400" />
+                        <span className="text-[9px] font-black uppercase tracking-[0.25em] text-emerald-400">Plataforma Educacional Ativa</span>
                      </div>
-                     <h2 className="text-5xl md:text-7xl font-black tracking-tighter leading-none mb-6">
+                     <h2 className="text-4xl md:text-6xl font-black tracking-tighter leading-tight mb-4">
                         Olá, {userName.split(' ')[1]}
                      </h2>
-                     <p className="text-lg text-neutral-400 font-medium leading-relaxed max-w-xl italic">
-                        Sua rede de suporte profissional Mais Médicos está totalmente sincronizada e pronta para auxiliar no raciocínio clínico.
+                     <p className="text-base text-neutral-400 font-medium leading-relaxed max-w-xl italic">
+                        Seu ambiente de suporte profissional e educacional está pronto para auxiliar no raciocínio clínico e pedagógico.
                      </p>
                   </div>
-                  <div className="w-48 h-48 md:w-64 md:h-64 bg-white/5 backdrop-blur-3xl rounded-full border border-white/10 flex items-center justify-center relative animate-float">
-                     <BrainCircuit size={80} className="text-emerald-500" />
+                  <div className="w-40 h-40 md:w-56 md:h-56 bg-white/5 backdrop-blur-3xl rounded-full border border-white/10 flex items-center justify-center relative animate-float">
+                     <BrainCircuit size={64} className="text-emerald-500" />
                      <div className="absolute inset-0 bg-emerald-500/20 blur-3xl rounded-full -z-10"></div>
                   </div>
                </div>
@@ -92,7 +92,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ user, onLogout, ey
   };
 
   return (
-    <div className={`min-h-screen flex justify-center ${eyeRest ? 'bg-[#f8f5f0]' : 'bg-[#f8fafc]'}`}>
+    <div className={`min-h-screen flex justify-center bg-edu ${eyeRest ? 'bg-[#f8f5f0]' : 'bg-[#fbfcff]'}`}>
       <div className="w-full max-w-[1600px] flex flex-col md:flex-row relative">
         <Sidebar 
           user={user}
@@ -110,15 +110,15 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ user, onLogout, ey
           </div>
         )}
         
-        <main className="flex-1 flex flex-col min-h-screen md:ml-72 w-full">
+        <main className="flex-1 flex flex-col min-h-screen md:ml-64 w-full">
           <Header 
             userName={userName} 
             onOpenMenu={() => setIsMobileMenuOpen(true)} 
             eyeRest={eyeRest}
             setEyeRest={setEyeRest}
           />
-          <div className="p-6 md:p-12 w-full flex-1">
-            <div className="max-w-7xl mx-auto">
+          <div className="p-4 md:p-10 w-full flex-1">
+            <div className="max-w-6xl mx-auto">
               {renderContent()}
             </div>
           </div>

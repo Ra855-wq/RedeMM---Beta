@@ -11,7 +11,7 @@ interface HeaderProps {
 
 export const Header: React.FC<HeaderProps> = ({ userName, onOpenMenu, eyeRest, setEyeRest }) => {
   return (
-    <header className="bg-white/80 backdrop-blur-md border-b border-neutral-100 px-6 py-4 flex items-center justify-between sticky top-0 z-40 h-20">
+    <header className="bg-white/80 backdrop-blur-md border-b border-neutral-100 px-6 py-3 flex items-center justify-between sticky top-0 z-40 h-16">
       <div className="flex items-center gap-4">
         <button onClick={onOpenMenu} className="md:hidden p-2 text-neutral-500"><Menu size={24} /></button>
         <div className="hidden md:block">

@@ -105,7 +105,7 @@ export const AssistantView: React.FC = () => {
     try {
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       const config: any = {
-        systemInstruction: "Você é o Cérebro Clínico 3.0. Seja ultra-rápido, técnico e preciso. Foco em protocolos PMMB e CID-10.",
+        systemInstruction: "Você é o Tutor de Inteligência Cirúrgica e Clínica. Sua missão é fornecer suporte educacional avançado para médicos e estudantes do PMMB. Explique conceitos, raciocínios clínicos e protocolos de forma didática, precisa e estruturada. Use analogias quando apropriado, cite fontes ou protocolos PMMB/CID-10 e incentive o pensamento crítico.",
         temperature,
         topK,
         topP
