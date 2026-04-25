@@ -2,6 +2,7 @@ export interface User {
   id: string;
   name: string;
   username: string;
+  rmsId?: string;
   password?: string;
   role: 'admin' | 'doctor';
   status: 'active' | 'pending';

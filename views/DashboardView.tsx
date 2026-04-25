@@ -11,6 +11,7 @@ import { ConsultationsView } from './ConsultationsView';
 import { CollaborationView } from './CollaborationView';
 import { ProfileView } from './ProfileView';
 import { LiveAssistantView } from './LiveAssistantView';
+import { BadgeView } from './BadgeView';
 import { X, Sparkles, Stethoscope, HeartPulse, Activity, BrainCircuit } from 'lucide-react';
 
 import { AdminView } from './AdminView';
@@ -28,11 +29,16 @@ const STORAGE_KEY = 'redemm_profile_data';
 export const DashboardView: React.FC<DashboardViewProps> = ({ user, onLogout, eyeRest, setEyeRest }) => {
   const [activePage, setActivePage] = useState('home');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [showBadge, setShowBadge] = useState(user.role === 'doctor'); // Show badge by default for doctors initially
   const [userName, setUserName] = useState(user.name);
+  const [userPhoto, setUserPhoto] = useState(user.photoURL);
 
   useEffect(() => {
+    // If user's first login in this session, show Badge. Handle later if need to be strict about once per session.
+    
     const handleProfileUpdate = (e: any) => {
       if (e.detail?.name) setUserName(e.detail.name);
+      if (e.detail?.photo) setUserPhoto(e.detail.photo);
     };
     window.addEventListener('profileUpdated', handleProfileUpdate);
     return () => window.removeEventListener('profileUpdated', handleProfileUpdate);
@@ -99,13 +105,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ user, onLogout, ey
           onLogout={onLogout} 
           activePage={activePage} 
           setActivePage={setActivePage} 
+          onOpenBadge={() => setShowBadge(true)}
         />
 
         {isMobileMenuOpen && (
           <div className="fixed inset-0 bg-neutral-900/60 backdrop-blur-md z-[70] md:hidden" onClick={() => setIsMobileMenuOpen(false)}>
             <div className="w-80 h-full bg-white shadow-surgical-xl" onClick={e => e.stopPropagation()}>
               <div className="p-8 flex justify-end"><button onClick={() => setIsMobileMenuOpen(false)} className="p-2 hover:bg-slate-100 rounded-full transition-all"><X size={24} /></button></div>
-              <Sidebar user={user} onLogout={onLogout} activePage={activePage} setActivePage={setActivePage} isMobile />
+              <Sidebar user={user} onLogout={onLogout} activePage={activePage} setActivePage={setActivePage} isMobile onOpenBadge={() => { setShowBadge(true); setIsMobileMenuOpen(false); }} />
             </div>
           </div>
         )}
@@ -113,6 +120,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ user, onLogout, ey
         <main className="flex-1 flex flex-col min-h-screen md:ml-64 w-full">
           <Header 
             userName={userName} 
+            userPhoto={userPhoto}
             onOpenMenu={() => setIsMobileMenuOpen(true)} 
             eyeRest={eyeRest}
             setEyeRest={setEyeRest}
@@ -124,6 +132,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ user, onLogout, ey
           </div>
         </main>
       </div>
+      
+      {showBadge && (
+        <BadgeView user={user} onClose={() => setShowBadge(false)} />
+      )}
     </div>
   );
 };

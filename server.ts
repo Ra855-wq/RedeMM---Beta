@@ -16,162 +16,165 @@ const PORT = 3000;
 app.use(cors());
 app.use(bodyParser.json());
 
-// In-memory user store for beta
-let users: User[] = [
-  {
-    id: "1",
-    name: "Moderador Sistema",
-    username: "admin",
-    password: "admin",
-    role: "admin",
-    status: "active"
-  },
-  {
-    id: "2",
-    name: "Dr. Rafael Araujo",
-    username: "beta.tester.pmmb",
-    password: "RedeMM#Beta@v0.1.0-Safe",
-    role: "doctor",
-    status: "active"
-  }
-];
+import { getFirebaseAdmin } from "./utils/firebaseAdmin.ts";
 
 // API Routes
-app.post("/api/login", (req, res) => {
+app.post("/api/login", async (req, res) => {
   const { username, password } = req.body;
-  const user = users.find(u => u.username === username && u.password === password);
+  const { db } = getFirebaseAdmin();
   
-  if (user) {
-    if (user.status !== 'active') {
-      return res.status(403).json({ error: "Conta aguardando liberação do moderador." });
+  try {
+    const snapshot = await db.collection('users')
+      .where('username', '==', username)
+      .where('password', '==', password)
+      .limit(1)
+      .get();
+    
+    if (!snapshot.empty) {
+      const userDoc = snapshot.docs[0];
+      const user = { id: userDoc.id, ...userDoc.data() } as User;
+      
+      if (user.status !== 'active') {
+        return res.status(403).json({ error: "Conta aguardando liberação do moderador." });
+      }
+      
+      const { auth } = getFirebaseAdmin();
+      let customToken = "";
+      try {
+        // Create a custom token to allow the client to authenticate with Firebase
+        customToken = await auth.createCustomToken(user.id);
+      } catch (tokenError) {
+        console.error("Error creating custom token:", tokenError);
+        // We continue anyway, but the client might have permission issues
+      }
+
+      const { password, ...userWithoutPassword } = user;
+      res.json({ 
+        user: userWithoutPassword,
+        token: customToken
+      });
+    } else {
+      res.status(401).json({ error: "Credenciais inválidas." });
     }
-    const { password, ...userWithoutPassword } = user;
-    res.json({ user: userWithoutPassword });
-  } else {
-    res.status(401).json({ error: "Credenciais inválidas." });
+  } catch (error: any) {
+    console.error("Login Error:", error);
+    res.status(500).json({ error: "Erro interno no servidor de autenticação." });
   }
 });
 
-app.post("/api/register", (req, res) => {
-  const { name, username, password } = req.body;
-  if (users.find(u => u.username === username)) {
-    return res.status(400).json({ error: "Este RMS já está cadastrado." });
+app.post("/api/register", async (req, res) => {
+  const { name, username, password, rmsId } = req.body;
+  const { db } = getFirebaseAdmin();
+  
+  try {
+    const existing = await db.collection('users')
+      .where('username', '==', username)
+      .limit(1)
+      .get();
+    
+    if (!existing.empty) {
+      return res.status(400).json({ error: "Este RMS já está cadastrado." });
+    }
+    
+    const newUser = {
+      name,
+      username,
+      rmsId,
+      password, // In a real app, hash this!
+      role: 'doctor',
+      status: 'pending',
+      createdAt: new Date().toISOString()
+    };
+    
+    await db.collection('users').add(newUser);
+    res.status(201).json({ message: "Solicitação enviada com sucesso. Aguarde a liberação do moderador." });
+  } catch (error: any) {
+    console.error("Register Error:", error);
+    res.status(500).json({ error: "Erro ao processar registro." });
   }
-  const newUser: User = {
-    id: Math.random().toString(36).substr(2, 9),
-    name,
-    username,
-    password,
-    role: 'doctor',
-    status: 'pending'
-  };
-  users.push(newUser);
-  res.status(201).json({ message: "Solicitação enviada com sucesso. Aguarde a liberação do moderador." });
 });
 
-app.get("/api/users", (req, res) => {
-  // In a real app, check for admin role here
-  res.json(users.map(({ password, ...u }) => u));
+app.get("/api/users", async (req, res) => {
+  const { db } = getFirebaseAdmin();
+  try {
+    const snapshot = await db.collection('users').get();
+    const users = snapshot.docs.map((doc: any) => {
+      const { password, ...u } = doc.data();
+      return { id: doc.id, ...u };
+    });
+    res.json(users);
+  } catch (error) {
+    res.status(500).json({ error: "Erro ao buscar usuários" });
+  }
 });
 
-app.post("/api/users", (req, res) => {
-  const newUser: User = {
-    id: Math.random().toString(36).substr(2, 9),
-    ...req.body,
-    status: req.body.status || 'pending'
-  };
-  users.push(newUser);
-  res.status(201).json(newUser);
+app.post("/api/users", async (req, res) => {
+  const { db } = getFirebaseAdmin();
+  try {
+    const newUser = {
+      ...req.body,
+      status: req.body.status || 'pending',
+      createdAt: new Date().toISOString()
+    };
+    const docRef = await db.collection('users').add(newUser);
+    res.status(201).json({ id: docRef.id, ...newUser });
+  } catch (error) {
+    res.status(500).json({ error: "Erro ao criar usuário" });
+  }
 });
 
-app.patch("/api/users/:id", (req, res) => {
+app.patch("/api/users/:id", async (req, res) => {
   const { id } = req.params;
-  const index = users.findIndex(u => u.id === id);
-  if (index !== -1) {
-    users[index] = { ...users[index], ...req.body };
-    res.json(users[index]);
-  } else {
+  const { db } = getFirebaseAdmin();
+  try {
+    await db.collection('users').doc(id).update(req.body);
+    const updated = await db.collection('users').doc(id).get();
+    res.json({ id: updated.id, ...updated.data() });
+  } catch (error) {
     res.status(404).json({ error: "Usuário não encontrado" });
   }
 });
 
-app.get("/api/profile/:username", (req, res) => {
+app.get("/api/profile/:username", async (req, res) => {
   const { username } = req.params;
-  const user = users.find(u => u.username === username);
-  if (user) {
-    const { password, ...u } = user;
-    res.json(u);
-  } else {
-    res.status(404).json({ error: "Perfil não encontrado" });
+  const { db } = getFirebaseAdmin();
+  try {
+    const snapshot = await db.collection('users').where('username', '==', username).limit(1).get();
+    if (!snapshot.empty) {
+      const { password, ...u } = snapshot.docs[0].data();
+      res.json({ id: snapshot.docs[0].id, ...u });
+    } else {
+      res.status(404).json({ error: "Perfil não encontrado" });
+    }
+  } catch (error) {
+    res.status(500).json({ error: "Erro ao buscar perfil" });
   }
 });
 
-app.post("/api/profile/:username", (req, res) => {
+app.post("/api/profile/:username", async (req, res) => {
   const { username } = req.params;
-  const index = users.findIndex(u => u.username === username);
-  if (index !== -1) {
-    // In a real app, we'd have a separate profile table or more fields in User
-    // For this beta, we'll just acknowledge the save
-    res.json({ message: "Perfil atualizado com sucesso" });
-  } else {
-    res.status(404).json({ error: "Usuário não encontrado" });
+  const { db } = getFirebaseAdmin();
+  try {
+    const snapshot = await db.collection('users').where('username', '==', username).limit(1).get();
+    if (!snapshot.empty) {
+      await db.collection('users').doc(snapshot.docs[0].id).update(req.body);
+      res.json({ message: "Perfil atualizado com sucesso" });
+    } else {
+      res.status(404).json({ error: "Usuário não encontrado" });
+    }
+  } catch (error) {
+    res.status(500).json({ error: "Erro ao atualizar perfil" });
   }
 });
 
-app.delete("/api/users/:id", (req, res) => {
+app.delete("/api/users/:id", async (req, res) => {
   const { id } = req.params;
-  users = users.filter(u => u.id !== id);
-  res.status(204).send();
-});
-
-// AI Routes (Server-side to hide API Key)
-import { 
-  generateProntuario, 
-  searchHealthFacilities, 
-  generateTTS, 
-  aiChat 
-} from "./utils/aiService.ts";
-
-app.post("/api/ai/prontuario", async (req, res) => {
+  const { db } = getFirebaseAdmin();
   try {
-    const text = await generateProntuario(req.body);
-    res.json({ text });
-  } catch (error: any) {
-    console.error("AI Error:", error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-app.post("/api/ai/facilities", async (req, res) => {
-  try {
-    const { query } = req.body;
-    const data = await searchHealthFacilities(query);
-    res.json(data);
-  } catch (error: any) {
-    console.error("AI Error:", error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-app.post("/api/ai/tts", async (req, res) => {
-  try {
-    const { text } = req.body;
-    const base64Audio = await generateTTS(text);
-    res.json({ base64Audio });
-  } catch (error: any) {
-    console.error("AI Error:", error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-app.post("/api/ai/chat", async (req, res) => {
-  try {
-    const { messages } = req.body;
-    const text = await aiChat(messages);
-    res.json({ text });
-  } catch (error: any) {
-    console.error("AI Error:", error);
-    res.status(500).json({ error: error.message });
+    await db.collection('users').doc(id).delete();
+    res.status(204).send();
+  } catch (error) {
+    res.status(500).json({ error: "Erro ao deletar usuário" });
   }
 });
 
@@ -186,7 +189,7 @@ async function setupVite() {
   } else {
     const distPath = path.resolve(__dirname, "dist");
     app.use(express.static(distPath));
-    app.get("*all", (req, res) => {
+    app.use((req, res) => {
       res.sendFile(path.resolve(distPath, "index.html"));
     });
   }

@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import { safeStorage } from '../utils/storage';
 import { auth, db } from '../utils/firebase';
-import { signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
+import { signInWithPopup, GoogleAuthProvider, signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 
 interface LoginViewProps {
@@ -19,6 +19,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [name, setName] = useState('');
   const [username, setUsername] = useState('');
+  const [rmsId, setRmsId] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -30,30 +31,26 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
       const result = await signInWithPopup(auth, provider);
       const user = result.user;
       
-      // Check if user exists in Firestore
       const userRef = doc(db, 'users', user.uid);
       const userSnap = await getDoc(userRef);
       
       let userData;
       if (!userSnap.exists()) {
-        // Create new user record
         userData = {
           name: user.displayName || 'Médico Bolsista',
           username: user.email?.split('@')[0] || 'user',
+          rmsId: 'PMMB-PENDING',
           role: 'doctor',
           status: 'pending',
           photo: user.photoURL || '',
           email: user.email || '',
-          idFuncional: 'PMM-PENDING'
         };
         await setDoc(userRef, userData);
         setError('Conta criada. Aguarde liberação do moderador.');
-        // Don't call onLogin yet if pending, but for beta we might want to bypass or show specific message
-        // For now, follow the "pending" logic from server.ts
         return;
       } else {
         userData = { id: user.uid, ...userSnap.data() };
-        if (userData.status !== 'active') {
+        if (userData.status !== 'active' && userData.role !== 'admin') {
           setError('Conta aguardando liberação do moderador.');
           return;
         }
@@ -61,9 +58,9 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
       
       safeStorage.setItem('redemm_user', JSON.stringify(userData));
       onLogin();
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      setError('Erro ao autenticar com Google.');
+      setError(err.message || 'Erro ao autenticar com Google.');
     }
   };
 
@@ -73,32 +70,65 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
     setSuccess('');
     
     try {
-      const endpoint = isRegistering ? '/api/register' : '/api/login';
-      const body = isRegistering ? { name, username, password } : { username, password };
-      
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body)
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        if (isRegistering) {
-          setSuccess(data.message);
-          setIsRegistering(false);
-        } else {
-          safeStorage.setItem('redemm_user', JSON.stringify(data.user));
-          onLogin();
+      if (isRegistering) {
+        const rmsPattern = /^[A-Z0-9]+-[A-Z0-9]+$/i;
+        if (!rmsId) {
+          setError('RMS/ID é obrigatório.');
+          return;
         }
-      } else {
-        setError(data.error || 'Erro ao processar. Tente novamente.');
-        setTimeout(() => setError(''), 5000);
+        if (!rmsPattern.test(rmsId)) {
+          setError('Formato de RMS/ID inválido. Use algo como PMMB-12345');
+          return;
+        }
       }
-    } catch (err) {
-      setError('Erro de conexão com o servidor.');
-      setTimeout(() => setError(''), 5000);
+
+      const mockEmail = `${username.toLowerCase().replace(/[^a-z0-9]/g, '')}@redemm.app`;
+      
+      if (isRegistering) {
+        const result = await createUserWithEmailAndPassword(auth, mockEmail, password);
+        const userRef = doc(db, 'users', result.user.uid);
+        const userData = {
+          name,
+          username,
+          rmsId,
+          role: 'doctor',
+          status: 'pending',
+          photo: '',
+          email: mockEmail
+        };
+        await setDoc(userRef, userData);
+        setSuccess('Conta criada. Aguarde liberação do moderador.');
+        setIsRegistering(false);
+      } else {
+        const result = await signInWithEmailAndPassword(auth, mockEmail, password);
+        const userRef = doc(db, 'users', result.user.uid);
+        const userSnap = await getDoc(userRef);
+        
+        if (userSnap.exists()) {
+          const userData = { id: result.user.uid, ...userSnap.data() };
+          if (userData.status !== 'active' && userData.role !== 'admin') {
+            setError('Sua conta está aguardando liberação.');
+            auth.signOut();
+            return;
+          }
+          safeStorage.setItem('redemm_user', JSON.stringify(userData));
+          onLogin();
+        } else {
+          setError('Perfil de usuário não encontrado.');
+          auth.signOut();
+        }
+      }
+    } catch (err: any) {
+      console.error("Auth error:", err);
+      if (err.code === 'auth/operation-not-allowed') {
+        setError('O login por senha não está ativado no projeto. Ative a autenticação E-mail/Senha no console Firebase ou use Login com Google.');
+      } else if (err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password') {
+        setError('RMS ou senha inválidos.');
+      } else if (err.code === 'auth/email-already-in-use') {
+        setError('Este usuário/RMS já está cadastrado.');
+      } else {
+        setError(err.message || 'Ocorreu um erro durante a autenticação.');
+      }
     }
   };
 
@@ -177,11 +207,12 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
 
           <form onSubmit={handleSubmit} className="space-y-6">
             <button
+              id="google-login-btn"
               type="button"
               onClick={handleGoogleLogin}
-              className="w-full py-6 bg-white border border-slate-100 text-slate-900 rounded-3xl font-black text-xs uppercase tracking-[0.3em] shadow-sm hover:bg-slate-50 transition-all transform active:scale-[0.98] flex items-center justify-center gap-4 mb-4"
+              className="w-full py-6 bg-white border border-slate-100 text-slate-900 rounded-3xl font-black text-[10px] uppercase tracking-[0.3em] shadow-sm hover:bg-slate-50 hover:border-slate-200 transition-all transform active:scale-[0.98] flex items-center justify-center gap-4 mb-4 group"
             >
-              <LogIn size={20} className="text-accent-600" />
+              <LogIn size={18} className="text-accent-600 group-hover:scale-110 transition-transform" />
               Entrar com Google
             </button>
 
@@ -192,20 +223,37 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
             </div>
 
             {isRegistering && (
-              <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nome Completo</label>
-                <div className="relative group">
-                  <User className="absolute left-5 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-300 group-focus-within:text-accent-600 transition-colors" />
-                  <input
-                    type="text"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    className="block w-full pl-14 pr-4 py-6 border border-slate-100 rounded-3xl text-slate-800 bg-slate-50/50 placeholder-slate-300 focus:outline-none focus:ring-4 focus:ring-accent-50 focus:bg-white transition-all font-bold text-lg"
-                    placeholder="Seu nome..."
-                    required
-                  />
+              <>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nome Completo</label>
+                  <div className="relative group">
+                    <User className="absolute left-5 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-300 group-focus-within:text-accent-600 transition-colors" />
+                    <input
+                      type="text"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      className="block w-full pl-14 pr-4 py-6 border border-slate-100 rounded-3xl text-slate-800 bg-slate-50/50 placeholder-slate-300 focus:outline-none focus:ring-4 focus:ring-accent-50 focus:bg-white transition-all font-bold text-lg"
+                      placeholder="Seu nome..."
+                      required
+                    />
+                  </div>
                 </div>
-              </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">RMS / ID (Formato PMMB-XXXX)</label>
+                  <div className="relative group">
+                    <ShieldCheck className="absolute left-5 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-300 group-focus-within:text-accent-600 transition-colors" />
+                    <input
+                      type="text"
+                      value={rmsId}
+                      onChange={(e) => setRmsId(e.target.value)}
+                      className="block w-full pl-14 pr-4 py-6 border border-slate-100 rounded-3xl text-slate-800 bg-slate-50/50 placeholder-slate-300 focus:outline-none focus:ring-4 focus:ring-accent-50 focus:bg-white transition-all font-bold text-lg"
+                      placeholder="PMMB-..."
+                      required
+                    />
+                  </div>
+                </div>
+              </>
             )}
 
             <div className="space-y-2">
@@ -246,10 +294,12 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
             </div>
 
             <button
+              id="login-submit-btn"
               type="submit"
-              className="w-full py-6 bg-neutral-900 text-white rounded-3xl font-black text-xs uppercase tracking-[0.3em] shadow-[0_20px_40px_rgba(0,0,0,0.1)] hover:bg-accent-600 transition-all transform active:scale-[0.98] mt-4"
+              className="w-full py-6 bg-slate-900 text-white rounded-3xl font-black text-[10px] uppercase tracking-[0.4em] shadow-[0_20px_50px_rgba(0,0,0,0.2)] hover:bg-accent-600 hover:shadow-accent-500/20 transition-all transform active:scale-[0.98] mt-8 group relative overflow-hidden"
             >
-              {isRegistering ? 'Enviar Solicitação' : 'Autenticar Fellowship'}
+              <div className="absolute inset-0 bg-gradient-to-r from-accent-600/0 via-accent-600/10 to-accent-600/0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
+              <span className="relative z-10">{isRegistering ? 'Enviar Solicitação' : 'Autenticar Fellowship'}</span>
             </button>
 
             <div className="text-center mt-6">

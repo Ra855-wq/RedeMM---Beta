@@ -18,8 +18,10 @@ const DEFAULT_PROFILE = {
   role: 'Médico Bolsista PMMB',
   crm: 'CRM/ES 987.654',
   rms: 'RMS/MS 123.456.789-00',
+  rmsId: 'PMMB-772154',
   email: 'rafael.araujo@saude.gov.br',
   phone: '(27) 99888-7766',
+  portfolio_url: 'appredemm.com.br/dr-rafael',
   ubs: 'Unidade de Saúde Joaquim Industrial Viana/ES',
   registration: 'PMMB #772154',
   photo: '/input_file_1.png',
@@ -96,11 +98,16 @@ export const ProfileView: React.FC = () => {
 
     // Minimal validation
     const rmsPattern = /^RMS\/MS\s\d{3}\.\d{3}\.\d{3}-\d{2}$/i;
+    const rmsIdPattern = /^[A-Z0-9]+-[A-Z0-9]+$/i;
     const crmPattern = /^CRM\/[A-Z]{2}\s\d+(\.\d+)?$/i;
     const phonePattern = /^\(\d{2}\)\s\d{4,5}-\d{4}$/;
 
     if (profile.rms && !rmsPattern.test(profile.rms) && !profile.rms.includes('#')) {
       alert('Formato de RMS inválido. Use: RMS/MS 000.000.000-00');
+      return;
+    }
+    if (profile.rmsId && !rmsIdPattern.test(profile.rmsId)) {
+      alert('Formato de RMS/ID inválido. Use algo como PMMB-12345');
       return;
     }
     if (profile.crm && !crmPattern.test(profile.crm)) {
@@ -265,6 +272,18 @@ export const ProfileView: React.FC = () => {
                   </div>
                 </div>
                 <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">RMS / ID (PMMB-XXXX)</label>
+                  <div className="relative">
+                    <input 
+                      type="text" 
+                      value={profile.rmsId}
+                      onChange={(e) => setProfile({...profile, rmsId: e.target.value})}
+                      className="w-full bg-slate-50 border border-slate-100 rounded-[1.8rem] px-8 py-5 text-base font-black text-accent-600 focus:outline-none focus:ring-4 focus:ring-accent-50 transition-all shadow-sm" 
+                    />
+                    <Fingerprint size={16} className="absolute right-6 top-1/2 -translate-y-1/2 text-accent-500" />
+                  </div>
+                </div>
+                <div className="space-y-2">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">CRM / UF (Ativo)</label>
                   <input 
                     type="text" 
@@ -283,6 +302,18 @@ export const ProfileView: React.FC = () => {
                     placeholder="Ex: (27) 99999-8888"
                     className="w-full bg-white border border-slate-100 rounded-[1.8rem] px-8 py-5 text-base font-bold text-slate-800 transition-all shadow-sm" 
                   />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">URL do Portfólio / AppRedeMM</label>
+                  <div className="relative">
+                    <div className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">appredemm.com.br/</div>
+                    <input 
+                      type="text" 
+                      value={profile.portfolio_url?.replace('appredemm.com.br/', '') || ''}
+                      onChange={(e) => setProfile({...profile, portfolio_url: `appredemm.com.br/${e.target.value}`})}
+                      className="w-full bg-white border border-slate-100 rounded-[1.8rem] pl-[135px] pr-8 py-5 text-base font-bold text-slate-800 focus:outline-none focus:ring-4 focus:ring-accent-50 transition-all shadow-sm" 
+                    />
+                  </div>
                 </div>
               </div>
             </div>
@@ -474,11 +505,19 @@ export const ProfileView: React.FC = () => {
                           const file = e.dataTransfer.files?.[0];
                           if (file) handleBrandingUpload({ target: { files: [file] } } as any);
                         }}
+                        htmlFor="branding-logo-input"
                       >
                         <div className="p-6 border-2 border-dashed border-slate-200 rounded-[2rem] hover:border-accent-400 transition-all text-center group/upload">
                           <Upload size={24} className="mx-auto mb-2 text-slate-300 group-hover/upload:text-accent-500 transition-colors" />
                           <span className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400">Arraste Logo ou Icone</span>
-                          <input type="file" className="hidden" accept="image/*" onChange={handleBrandingUpload} />
+                          <input 
+                            id="branding-logo-input"
+                            type="file" 
+                            className="sr-only" 
+                            accept="image/*" 
+                            onChange={handleBrandingUpload} 
+                            aria-label="Upload de logo de marca"
+                          />
                         </div>
                       </label>
                     </div>

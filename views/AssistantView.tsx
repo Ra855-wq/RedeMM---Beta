@@ -114,8 +114,8 @@ export const AssistantView: React.FC = () => {
 
     try {
       const gptMessages = newMessages.map(m => ({
-        role: m.role === 'assistant' ? 'model' : 'user',
-        parts: [{ text: m.content }]
+        role: m.role,
+        content: m.content
       }));
       
       const text = await aiChat(gptMessages);
@@ -123,9 +123,13 @@ export const AssistantView: React.FC = () => {
       if (isMounted.current) {
         setMessages(prev => [...prev, { role: 'assistant', content: text || "Sem resposta." }]);
       }
-    } catch (error) {
+    } catch (error: any) {
+      console.error("Chat Error:", error);
       if (isMounted.current) {
-        setMessages(prev => [...prev, { role: 'assistant', content: "Erro de conexão." }]);
+        const errorMsg = error.message?.includes("Chave de API") 
+          ? "Configuração pendente: A Chave de API não foi encontrada no ambiente."
+          : "Falha na conexão com o Cérebro Clínico. Tente novamente em instantes.";
+        setMessages(prev => [...prev, { role: 'assistant', content: errorMsg }]);
       }
     } finally {
       if (isMounted.current) setIsProcessing(false);
@@ -149,8 +153,9 @@ export const AssistantView: React.FC = () => {
           </div>
           <div className="flex items-center gap-4">
             <button 
+              id="assistant-settings-btn"
               onClick={() => setShowSettings(!showSettings)} 
-              className={`p-3 rounded-2xl border transition-all flex items-center gap-2 text-[10px] font-black uppercase tracking-widest ${showSettings ? 'bg-slate-100 border-slate-300 text-slate-800' : 'bg-white border-slate-200 text-slate-400 hover:text-blue-600'}`}
+              className={`p-3 rounded-2xl border transition-all flex items-center gap-2 text-[10px] font-black uppercase tracking-widest ${showSettings ? 'bg-blue-600 border-blue-500 text-white shadow-lg shadow-blue-500/20' : 'bg-white border-slate-200 text-slate-400 hover:text-blue-600 hover:border-blue-200'}`}
             >
               <Settings2 size={16} /> Parâmetros {showSettings ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
             </button>

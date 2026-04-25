@@ -82,12 +82,12 @@ export const LiveAssistantView: React.FC = () => {
       if (outputAudioCtxRef.current.state === 'suspended') await outputAudioCtxRef.current.resume();
 
       const sessionPromise = ai.live.connect({
-        model: 'gemini-2.0-flash-exp', // Or 'gemini-3.1-flash-live-preview' as per latest skill
+        model: 'gemini-3.1-flash-live-preview',
         config: {
           responseModalities: [Modality.AUDIO],
           speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Zephyr' } } },
           inputAudioTranscription: {},
-          systemInstruction: "Você é o Assistente v3.1 da RedeMM. Foco Mais Médicos. Respostas curtas, orais e precisas.",
+          systemInstruction: "Você é o Assistente v3.1 da RedeMM. Foco Mais Médicos. Respostas curtas, orais e precisas. Use terminologia médica adequada do SUS.",
         },
         callbacks: {
           onopen: () => {
@@ -103,7 +103,7 @@ export const LiveAssistantView: React.FC = () => {
               for (let i = 0; i < inputData.length; i++) int16[i] = inputData[i] * 32768;
               const pcmBlob = { data: encode(new Uint8Array(int16.buffer)), mimeType: 'audio/pcm;rate=16000' };
               sessionPromise.then(s => {
-                if (isMounted.current) s.sendRealtimeInput({ audio: pcmBlob });
+                if (isMounted.current) s.sendRealtimeInput({ media: pcmBlob });
               }).catch(err => console.error("Send error", err));
             };
             source.connect(scriptProcessor);

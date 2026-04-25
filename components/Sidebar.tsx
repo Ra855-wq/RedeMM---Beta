@@ -12,9 +12,10 @@ interface SidebarProps {
   setActivePage: (page: string) => void;
   isMobile?: boolean;
   user?: UserType;
+  onOpenBadge?: () => void;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ onLogout, activePage, setActivePage, isMobile, user }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ onLogout, activePage, setActivePage, isMobile, user, onOpenBadge }) => {
   const menuItems = [
     { id: 'home', icon: Home, label: 'Início' },
     { id: 'assistant', icon: BrainCircuit, label: 'Cérebro Clínico' },
@@ -25,9 +26,21 @@ export const Sidebar: React.FC<SidebarProps> = ({ onLogout, activePage, setActiv
     { id: 'profile', icon: User, label: 'Perfil' },
   ];
 
+  if (user?.role === 'doctor') {
+    menuItems.push({ id: 'badge', icon: Shield, label: 'Credencial' });
+  }
+
   if (user?.role === 'admin') {
     menuItems.push({ id: 'admin', icon: Shield, label: 'Moderador' });
   }
+
+  const handleMenuClick = (id: string) => {
+    if (id === 'badge' && onOpenBadge) {
+      onOpenBadge();
+    } else if (id !== 'badge') {
+      setActivePage(id);
+    }
+  };
 
   return (
     <aside className={`${isMobile ? 'w-full h-full' : 'hidden md:flex w-64 fixed h-screen p-3'} flex-col bg-transparent z-50`}>
@@ -42,7 +55,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onLogout, activePage, setActiv
              </div>
           </div>
           <div className="text-center">
-            <h1 className="text-lg font-black text-neutral-900 tracking-tighter leading-none">REDE<span className="text-accent-600">MM</span></h1>
+            <h1 className="text-lg font-black text-neutral-900 tracking-tighter leading-none">AppRede<span className="text-accent-600">MM</span></h1>
           </div>
           <div className="mt-3 px-3 py-1 bg-accent-600 rounded-full text-[7px] font-black text-white uppercase tracking-[0.2em] shadow-lg shadow-accent-500/20">v0.1.0-beta</div>
         </div>
@@ -54,7 +67,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onLogout, activePage, setActiv
             return (
               <button
                 key={item.id}
-                onClick={() => setActivePage(item.id)}
+                onClick={() => handleMenuClick(item.id)}
                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-[12px] font-bold transition-all duration-500 relative group/item
                   ${isActive 
                     ? 'bg-neutral-900 text-white shadow-2xl shadow-neutral-900/40 translate-x-1' 

@@ -5,63 +5,68 @@ let ai: GoogleGenAI | null = null;
 
 export function getAI(): GoogleGenAI {
   if (!ai) {
-    // In Vite, we use process.env.GEMINI_API_KEY as per the platform configuration
-    // which injects it into the bundle for these specific apps.
-    const apiKey = process.env.GEMINI_API_KEY;
+    // Falls back to API_KEY if GEMINI_API_KEY is not defined in certain environments
+    const apiKey = process.env.GEMINI_API_KEY || (process as any).env?.API_KEY;
     if (!apiKey) {
-      throw new Error('GEMINI_API_KEY is not defined. Please check your environment variables.');
+      console.warn("GEMINI_API_KEY requested but not found in process.env");
+      throw new Error('Assistente indisponível: Chave de API não configurada. Verifique as configurações do projeto.');
     }
     ai = new GoogleGenAI({ apiKey });
   }
   return ai;
 }
 
+const DEFAULT_MODEL = "gemini-3-flash-preview";
+
 export async function generateProntuario(patientData: any) {
   const client = getAI();
-  const prompt = `Como um médico preceptor do PMMB, forneça um "Prontuário Rápido" ultra-objetivo para o caso abaixo:
+  const prompt = `Como um médico preceptor do PMMB (Programa Mais Médicos para o Brasil), forneça um "Prontuário Rápido" ultra-objetivo para o caso abaixo:
   Paciente: ${patientData.name}, ${patientData.age} anos. 
   Condição Principal: ${patientData.condition}. 
   
   Siga rigorosamente esta estrutura:
-  - PERFIL CLÍNICO: (2 linhas sobre o manejo padrão)
-  - RISCOS IMEDIATOS: (Alertas baseados na idade e patologia)
-  - CONDUTA SUGERIDA: (3 passos técnicos citando protocolos brasileiros do PMMB)
+  - PERFIL CLÍNICO: (Resumo técnico do manejo padrão)
+  - RISCOS IMEDIATOS: (Alertas baseados na fisiopatologia e diretrizes brasileiras)
+  - CONDUTA SUGERIDA: (Passos técnicos objetivos citando protocolos do MS/SUS)
   
-  Seja conciso, use linguagem médica de alto nível.`;
+  Linguagem técnica formal, objetiva e voltada para médicos bolsistas.`;
 
   const response = await client.models.generateContent({
-    model: "gemini-2.0-flash-exp",
+    model: DEFAULT_MODEL,
     contents: prompt,
   });
 
   return response.text;
 }
 
-export async function searchHealthFacilities(query: string) {
+export async function searchHealthFacilities(query: string, location?: {lat: number, lng: number}) {
   const client = getAI();
+  
+  let mapPrompt = `Encontre unidades de saúde oficiais para: "${query}". Foco em rede SUS e rede de apoio para médicos.`;
+  if (location) {
+    mapPrompt += ` Considere a localização próxima a: Latitude:${location.lat}, Longitude:${location.lng}.`;
+  }
+
   const response = await client.models.generateContent({ 
-    model: "gemini-2.0-flash-exp",
-    contents: `Encontre unidades de saúde oficiais para: "${query}". Foco em rede SUS para médicos bolsistas PMMB.`,
+    model: DEFAULT_MODEL,
+    contents: mapPrompt,
     config: {
-      // @ts-ignore
       tools: [{ googleSearch: {} }]
     }
   });
 
   return {
     text: response.text,
-    // @ts-ignore
-    groundingMetadata: response.candidates?.[0]?.groundingMetadata
+    groundingMetadata: (response as any).candidates?.[0]?.groundingMetadata
   };
 }
 
 export async function generateTTS(text: string) {
   const client = getAI();
   const response = await client.models.generateContent({
-    model: "gemini-2.0-flash-exp",
+    model: "gemini-3.1-flash-tts-preview",
     contents: text,
     config: {
-      // @ts-ignore
       responseModalities: ["AUDIO"],
       speechConfig: {
         voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Kore' } },
@@ -69,28 +74,36 @@ export async function generateTTS(text: string) {
     },
   });
 
-  // @ts-ignore
-  return response.candidates?.[0]?.content?.parts?.find(p => p.inlineData)?.inlineData?.data;
+  // Extract audio from parts
+  const candidates = (response as any).candidates;
+  if (!candidates?.[0]?.content?.parts) return null;
+  
+  const audioPart = candidates[0].content.parts.find((part: any) => part.inlineData);
+  return audioPart?.inlineData?.data;
 }
 
 export async function aiChat(messages: any[]) {
   const client = getAI();
   
-  // Convert messages to SDK format
-  const chatHistory = messages.slice(0, -1).map(m => ({
-    role: m.role || (m.sender === 'me' ? 'user' : 'model'),
-    parts: [{ text: m.text || (m.parts && m.parts[0].text) }]
-  }));
-
-  const lastMessage = messages[messages.length - 1];
-  const lastText = lastMessage.text || (lastMessage.parts && lastMessage.parts[0].text);
+  // The SDK expects roles: 'user' or 'model'.
+  // We ensure the mapping is correct even if called with 'assistant' or already mapped roles.
+  const contents = messages.map(msg => {
+    const rawRole = msg.role || (msg.sender === 'me' ? 'user' : 'model');
+    const role = (rawRole === 'assistant' || rawRole === 'model') ? 'model' : 'user';
+    const text = msg.content || msg.text || (msg.parts && msg.parts[0]?.text) || "";
+    
+    return {
+      role,
+      parts: [{ text }]
+    };
+  });
 
   const response = await client.models.generateContent({
-    model: "gemini-2.0-flash-exp",
-    contents: [
-      ...chatHistory,
-      { role: 'user', parts: [{ text: lastText }] }
-    ]
+    model: DEFAULT_MODEL,
+    contents: contents,
+    config: {
+      systemInstruction: "Você é o 'Cérebro Clínico' da RedeMM, uma plataforma de suporte para médicos do PMMB (Mais Médicos). Seu tom é profissional, técnico, empático e focado nos protocolos do SUS/MS. Suas respostas devem ser precisas e baseadas em evidências. Seja direto e evite introduções longas."
+    }
   });
 
   return response.text;
