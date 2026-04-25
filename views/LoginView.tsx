@@ -2,9 +2,13 @@
 import React, { useState } from 'react';
 import { 
   Lock, User, Eye, EyeOff, ShieldCheck, AlertCircle, 
-  Stethoscope, HeartPulse, Pill, Activity, Dna, Syringe, BrainCircuit, GraduationCap
+  Stethoscope, HeartPulse, Pill, Activity, Dna, Syringe, BrainCircuit, GraduationCap,
+  LogIn
 } from 'lucide-react';
 import { safeStorage } from '../utils/storage';
+import { auth, db } from '../utils/firebase';
+import { signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 
 interface LoginViewProps {
   onLogin: () => void;
@@ -18,6 +22,50 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+
+  const handleGoogleLogin = async () => {
+    setError('');
+    const provider = new GoogleAuthProvider();
+    try {
+      const result = await signInWithPopup(auth, provider);
+      const user = result.user;
+      
+      // Check if user exists in Firestore
+      const userRef = doc(db, 'users', user.uid);
+      const userSnap = await getDoc(userRef);
+      
+      let userData;
+      if (!userSnap.exists()) {
+        // Create new user record
+        userData = {
+          name: user.displayName || 'Médico Bolsista',
+          username: user.email?.split('@')[0] || 'user',
+          role: 'doctor',
+          status: 'pending',
+          photo: user.photoURL || '',
+          email: user.email || '',
+          idFuncional: 'PMM-PENDING'
+        };
+        await setDoc(userRef, userData);
+        setError('Conta criada. Aguarde liberação do moderador.');
+        // Don't call onLogin yet if pending, but for beta we might want to bypass or show specific message
+        // For now, follow the "pending" logic from server.ts
+        return;
+      } else {
+        userData = { id: user.uid, ...userSnap.data() };
+        if (userData.status !== 'active') {
+          setError('Conta aguardando liberação do moderador.');
+          return;
+        }
+      }
+      
+      safeStorage.setItem('redemm_user', JSON.stringify(userData));
+      onLogin();
+    } catch (err) {
+      console.error(err);
+      setError('Erro ao autenticar com Google.');
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -128,6 +176,21 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-6">
+            <button
+              type="button"
+              onClick={handleGoogleLogin}
+              className="w-full py-6 bg-white border border-slate-100 text-slate-900 rounded-3xl font-black text-xs uppercase tracking-[0.3em] shadow-sm hover:bg-slate-50 transition-all transform active:scale-[0.98] flex items-center justify-center gap-4 mb-4"
+            >
+              <LogIn size={20} className="text-accent-600" />
+              Entrar com Google
+            </button>
+
+            <div className="flex items-center gap-4 py-2">
+              <div className="h-px bg-slate-100 flex-1"></div>
+              <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest whitespace-nowrap">Ou credenciais RMS</span>
+              <div className="h-px bg-slate-100 flex-1"></div>
+            </div>
+
             {isRegistering && (
               <div className="space-y-2">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nome Completo</label>

@@ -14,7 +14,8 @@ import {
   Layers,
   Map as MapIcon
 } from 'lucide-react';
-import { GoogleGenAI } from "@google/genai";
+
+import { searchHealthFacilities } from '../utils/aiService';
 
 declare const L: any;
 
@@ -172,44 +173,21 @@ export const MapView: React.FC = () => {
 
   const handleSearch = async (forcedQuery?: string) => {
     const searchTerm = forcedQuery || query;
+    if (!searchTerm || loading) return;
     setLoading(true);
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      
-      // We ask Gemini to provide approximate coordinates for the map in the text response 
-      // as it has grounding knowledge.
-      const prompt = `
+      const complexPrompt = `
         Encontre serviços de saúde (UBS, Hospitais, CAPS) para: "${searchTerm}".
         
         IMPORTANTE: Além dos links do Google Maps, para cada local encontrado, forneça no início da sua resposta um bloco JSON contendo uma lista de objetos com as seguintes chaves: "name", "lat", "lng", "type". 
         Use as coordenadas geográficas reais desses locais para que eu possa plotá-los no mapa.
       `;
-      
-      const config: any = {
-        tools: [{ googleMaps: {} }],
-      };
 
-      if (location && (!searchTerm || !searchTerm.toLowerCase().includes(" em "))) {
-        config.toolConfig = {
-          retrievalConfig: {
-            latLng: {
-              latitude: location.lat,
-              longitude: location.lng
-            }
-          }
-        };
-      }
+      const data = await searchHealthFacilities(complexPrompt);
 
-      const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
-        contents: prompt,
-        config: config,
-      });
-
-      const text = response.text || "";
+      const text = data.text || "";
       let extractedCoords: any[] = [];
       
-      // Try to parse JSON block from text if AI provided it
       try {
         const jsonMatch = text.match(/\[\s*\{.*\}\s*\]/s);
         if (jsonMatch) {
@@ -219,7 +197,7 @@ export const MapView: React.FC = () => {
         console.warn("Could not parse coordinates from AI response", e);
       }
 
-      const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
+      const chunks = data.groundingMetadata?.groundingChunks || [];
       const extractedResults = chunks
         .filter((c: any) => c.maps)
         .map((c: any) => {
@@ -230,7 +208,7 @@ export const MapView: React.FC = () => {
             title: title,
             uri: c.maps.uri,
             snippet: c.maps.placeAnswerSources?.[0]?.reviewSnippets?.[0] || "Informações detalhadas disponíveis no link oficial.",
-            lat: coordMatch?.lat || (location ? location.lat + (Math.random() - 0.5) * 0.02 : null), // Fallback to mock nearby if no coords
+            lat: coordMatch?.lat || (location ? location.lat + (Math.random() - 0.5) * 0.02 : null),
             lng: coordMatch?.lng || (location ? location.lng + (Math.random() - 0.5) * 0.02 : null)
           };
         });

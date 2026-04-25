@@ -55,15 +55,18 @@ export const Sidebar: React.FC<SidebarProps> = ({ onLogout, activePage, setActiv
               <button
                 key={item.id}
                 onClick={() => setActivePage(item.id)}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-[12px] font-bold transition-all duration-300
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-[12px] font-bold transition-all duration-500 relative group/item
                   ${isActive 
-                    ? 'bg-neutral-900 text-white shadow-lg shadow-neutral-900/10' 
-                    : 'text-neutral-400 hover:bg-neutral-50 hover:text-neutral-900'}`}
+                    ? 'bg-neutral-900 text-white shadow-2xl shadow-neutral-900/40 translate-x-1' 
+                    : 'text-neutral-400 hover:bg-white hover:text-neutral-900 hover:shadow-[0_0_20px_rgba(37,99,235,0.15)] hover:-translate-y-0.5'}`}
               >
-                <div className={`${isActive ? 'text-accent-400' : 'opacity-60'}`}>
+                {isActive && (
+                  <div className="absolute left-0 w-1.5 h-6 bg-accent-500 rounded-r-full animate-in slide-in-from-left-2" />
+                )}
+                <div className={`${isActive ? 'text-accent-400' : 'opacity-60 group-hover/item:text-accent-500 group-hover/item:opacity-100 group-hover/item:scale-110 transition-all duration-300'}`}>
                   <Icon size={16} />
                 </div>
-                <span className="truncate">{item.label}</span>
+                <span className="truncate group-hover/item:translate-x-1 transition-transform duration-300">{item.label}</span>
               </button>
             );
           })}

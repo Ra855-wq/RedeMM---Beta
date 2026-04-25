@@ -21,8 +21,8 @@ let users: User[] = [
   {
     id: "1",
     name: "Moderador Sistema",
-    username: "moderador.rede.mm",
-    password: "PMMB$Moderador!2025#",
+    username: "admin",
+    password: "admin",
     role: "admin",
     status: "active"
   },
@@ -122,6 +122,57 @@ app.delete("/api/users/:id", (req, res) => {
   const { id } = req.params;
   users = users.filter(u => u.id !== id);
   res.status(204).send();
+});
+
+// AI Routes (Server-side to hide API Key)
+import { 
+  generateProntuario, 
+  searchHealthFacilities, 
+  generateTTS, 
+  aiChat 
+} from "./utils/aiService.ts";
+
+app.post("/api/ai/prontuario", async (req, res) => {
+  try {
+    const text = await generateProntuario(req.body);
+    res.json({ text });
+  } catch (error: any) {
+    console.error("AI Error:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post("/api/ai/facilities", async (req, res) => {
+  try {
+    const { query } = req.body;
+    const data = await searchHealthFacilities(query);
+    res.json(data);
+  } catch (error: any) {
+    console.error("AI Error:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post("/api/ai/tts", async (req, res) => {
+  try {
+    const { text } = req.body;
+    const base64Audio = await generateTTS(text);
+    res.json({ base64Audio });
+  } catch (error: any) {
+    console.error("AI Error:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post("/api/ai/chat", async (req, res) => {
+  try {
+    const { messages } = req.body;
+    const text = await aiChat(messages);
+    res.json({ text });
+  } catch (error: any) {
+    console.error("AI Error:", error);
+    res.status(500).json({ error: error.message });
+  }
 });
 
 // Vite middleware for development

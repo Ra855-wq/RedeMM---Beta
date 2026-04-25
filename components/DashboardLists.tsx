@@ -1,101 +1,122 @@
 import React from 'react';
-import { CalendarClock, AlertCircle, CheckCircle2, FileText, UserPlus } from 'lucide-react';
+import { AlertCircle, CheckCircle2, FileText, UserPlus, BookOpen, Award, GraduationCap, ArrowUpRight } from 'lucide-react';
 
 export const DashboardLists: React.FC = () => {
-  const consultations = [
-    { id: 1, name: 'Carlos Oliveira', type: 'Consulta de rotina', time: '14:30', isToday: true },
-    { id: 2, name: 'Ana Beatriz Silva', type: 'Primeira consulta', time: '10:15', isToday: false, date: 'Amanhã' },
-    { id: 3, name: 'Roberto Mendes', type: 'Retorno', time: '16:00', isToday: false, date: 'Quinta' },
-  ];
-
   const notifications = [
     { 
       id: 1, 
-      title: 'Novo paciente cadastrado', 
-      desc: 'Mariana Costa foi adicionada à sua lista', 
+      title: 'Nota Técnica SISREG', 
+      desc: 'Atualização nos fluxos de cardiologia em Vila Velha', 
       time: 'Hoje, 11:23',
-      icon: UserPlus,
-      color: 'text-blue-500'
+      icon: FileText,
+      color: 'text-blue-500',
+      bg: 'bg-blue-50'
     },
     { 
       id: 2, 
-      title: 'Consulta confirmada', 
-      desc: 'Pedro Almeida confirmou a consulta', 
+      title: 'Atestado de Presença', 
+      desc: 'O formulário de frequência do Ciclo 12 está liberado', 
       time: '15:45',
       icon: CheckCircle2,
-      color: 'text-green-500'
+      color: 'text-emerald-500',
+      bg: 'bg-emerald-50'
     },
     { 
       id: 3, 
-      title: 'Exames disponíveis', 
-      desc: 'Novos resultados de exames de Júlia', 
-      time: 'Ontem, 16:30',
-      icon: FileText,
-      color: 'text-purple-500'
+      title: 'Módulo de Especialização', 
+      desc: 'Prazo final para entrega do portfólio MFC amanhã', 
+      time: 'Há 2 dias',
+      icon: Award,
+      color: 'text-purple-500',
+      bg: 'bg-purple-50'
     },
   ];
 
+  const academicProgress = [
+    { label: 'Especialização MFC', progress: 75, status: 'Em andamento' },
+    { label: 'Cursos Transversais', progress: 100, status: 'Concluído' },
+    { label: 'Atividades Práticas', progress: 40, status: 'Ciclo 2' },
+  ];
+
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-      {/* Consultations List */}
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 flex flex-col">
-        <div className="flex justify-between items-center mb-6">
-          <h3 className="font-bold text-slate-800 flex items-center gap-2">
-            <CalendarClock size={20} className="text-primary-600" />
-            Próximas Consultas
-          </h3>
-          <button className="text-xs font-semibold text-primary-700 hover:underline">Ver todas</button>
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      {/* Central de Notificações Profissionais */}
+      <div className="bg-white rounded-[3rem] shadow-surgical-sm border border-slate-100 p-10 flex flex-col">
+        <div className="flex justify-between items-center mb-8">
+          <div>
+            <h3 className="font-black text-slate-900 text-lg uppercase tracking-tight">Informativos PMMB</h3>
+            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Sincronizado com Tutor Virtual</p>
+          </div>
+          <button className="p-3 bg-slate-50 text-slate-400 hover:text-slate-900 hover:bg-slate-100 rounded-2xl transition-all">
+            <AlertCircle size={20} />
+          </button>
         </div>
         
-        <div className="space-y-4 flex-1">
-          {consultations.map((item) => (
-            <div key={item.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors">
-              <div>
-                <h4 className="font-bold text-slate-800 text-sm">{item.name}</h4>
-                <p className="text-xs text-slate-500">{item.type}</p>
+        <div className="space-y-6 flex-1">
+          {notifications.map((item) => (
+            <div key={item.id} className="group flex items-start gap-5 p-5 rounded-[2rem] hover:bg-slate-50 transition-all cursor-pointer">
+              <div className={`w-12 h-12 ${item.bg} ${item.color} rounded-2xl flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform`}>
+                <item.icon size={22} />
               </div>
-              <div className="text-right">
-                <span className={`text-xs font-bold px-2 py-1 rounded ${item.isToday ? 'bg-primary-100 text-primary-700' : 'bg-slate-200 text-slate-600'}`}>
-                  {item.isToday ? 'Hoje' : item.date}
-                </span>
-                <p className="text-xs text-slate-500 mt-1">{item.time}</p>
+              <div className="flex-1 min-w-0">
+                <div className="flex justify-between items-start mb-1">
+                  <h4 className="font-black text-slate-900 text-sm tracking-tight truncate">{item.title}</h4>
+                  <span className="text-[9px] font-black text-slate-300 uppercase shrink-0">{item.time}</span>
+                </div>
+                <p className="text-xs text-slate-400 font-medium leading-relaxed line-clamp-1">{item.desc}</p>
               </div>
             </div>
           ))}
         </div>
-        <button className="w-full mt-4 bg-primary-700 hover:bg-primary-800 text-white font-medium py-2 rounded-lg transition-colors text-sm">
-          Ver Agenda Completa
+        
+        <button className="w-full mt-8 py-5 bg-slate-50 text-slate-900 font-black text-[10px] uppercase tracking-[0.2em] rounded-2xl hover:bg-slate-900 hover:text-white transition-all shadow-sm">
+          EXPLORAR ARQUIVOS DA PRECEPTORIA
         </button>
       </div>
 
-      {/* Notifications List */}
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 flex flex-col">
-        <div className="flex justify-between items-center mb-6">
-          <h3 className="font-bold text-slate-800 flex items-center gap-2">
-            <AlertCircle size={20} className="text-primary-600" />
-            Notificações Recentes
-          </h3>
-          <button className="text-xs font-semibold text-primary-700 hover:underline">Limpar</button>
+      {/* Evolução Acadêmica & Fellowship */}
+      <div className="bg-white rounded-[3rem] shadow-surgical-sm border border-slate-100 p-10 flex flex-col relative overflow-hidden group">
+        <div className="absolute top-0 right-0 p-10 opacity-[0.03] group-hover:opacity-[0.05] transition-opacity">
+           <GraduationCap size={160} />
         </div>
-
-        <div className="space-y-4 flex-1">
-          {notifications.map((item) => (
-            <div key={item.id} className="flex gap-4 p-3 border-b border-slate-50 last:border-0 hover:bg-slate-50 rounded-lg transition-colors">
-              <div className={`mt-1 ${item.color}`}>
-                <item.icon size={18} />
-              </div>
-              <div>
-                <h4 className="font-bold text-slate-800 text-sm">{item.title}</h4>
-                <p className="text-xs text-slate-500 line-clamp-1">{item.desc}</p>
-                <p className="text-[10px] text-slate-400 mt-1">{item.time}</p>
-              </div>
+        
+        <div className="relative z-10 flex flex-col h-full">
+          <div className="flex justify-between items-center mb-10">
+            <div>
+              <h3 className="font-black text-slate-900 text-lg uppercase tracking-tight">Progresso Tutorial</h3>
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Fellowship em MFC</p>
             </div>
-          ))}
+            <div className="w-12 h-12 bg-accent-50 text-accent-600 rounded-2xl flex items-center justify-center">
+              <BookOpen size={22} />
+            </div>
+          </div>
+
+          <div className="space-y-8 flex-1">
+            {academicProgress.map((item, idx) => (
+              <div key={idx} className="space-y-3">
+                <div className="flex justify-between items-end">
+                  <div>
+                    <h4 className="text-xs font-black text-slate-900 uppercase tracking-tight">{item.label}</h4>
+                    <span className="text-[9px] font-black text-accent-600 uppercase tracking-widest">{item.status}</span>
+                  </div>
+                  <span className="text-xs font-black text-slate-900">{item.progress}%</span>
+                </div>
+                <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-accent-600 rounded-full transition-all duration-1000" 
+                    style={{ width: `${item.progress}%` }}
+                  ></div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <button className="w-full mt-10 py-5 bg-neutral-900 text-white font-black text-[10px] uppercase tracking-[0.2em] rounded-2xl flex items-center justify-center gap-3 hover:translate-y-[-2px] transition-all shadow-xl active:scale-95">
+            CARREGAR ATIVIDADE DO CICLO <ArrowUpRight size={14} />
+          </button>
         </div>
-        <button className="w-full mt-4 bg-primary-700 hover:bg-primary-800 text-white font-medium py-2 rounded-lg transition-colors text-sm">
-          Ver Todas Notificações
-        </button>
       </div>
     </div>
   );
 };
+

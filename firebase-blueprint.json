@@ -1,0 +1,72 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "Professional profile data for doctors and admins.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "username": { "type": "string" },
+        "role": { "type": "string", "enum": ["doctor", "admin"] },
+        "status": { "type": "string", "enum": ["active", "pending", "disabled"] },
+        "photo": { "type": "string" },
+        "idFuncional": { "type": "string" },
+        "email": { "type": "string" }
+      },
+      "required": ["name", "username", "role", "status"]
+    },
+    "Patient": {
+      "title": "Patient",
+      "description": "Patient information.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "age": { "type": "string" },
+        "condition": { "type": "string" },
+        "date": { "type": "string" },
+        "doctorId": { "type": "string" }
+      },
+      "required": ["name", "age", "condition", "doctorId"]
+    },
+    "Message": {
+      "title": "Message",
+      "description": "Real-time message between professionals.",
+      "type": "object",
+      "properties": {
+        "senderId": { "type": "string" },
+        "text": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["senderId", "text", "timestamp"]
+    },
+    "Chat": {
+      "title": "Chat",
+      "description": "Metadata for a conversation between two professionals.",
+      "type": "object",
+      "properties": {
+        "participants": { "type": "array", "items": { "type": "string" } },
+        "lastMessage": { "type": "string" },
+        "lastUpdate": { "type": "string", "format": "date-time" }
+      },
+      "required": ["participants"]
+    }
+  },
+  "firestore": {
+    "users/{userId}": {
+      "schema": "User",
+      "description": "User profile documents."
+    },
+    "patients/{patientId}": {
+      "schema": "Patient",
+      "description": "Patient records."
+    },
+    "chats/{chatId}": {
+      "schema": "Chat",
+      "description": "Chat session metadata."
+    },
+    "chats/{chatId}/messages/{messageId}": {
+      "schema": "Message",
+      "description": "Messages within a chat session."
+    }
+  }
+}

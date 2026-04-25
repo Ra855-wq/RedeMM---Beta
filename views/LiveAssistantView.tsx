@@ -40,6 +40,16 @@ export const LiveAssistantView: React.FC = () => {
   const nextStartTimeRef = useRef(0);
   const sourcesRef = useRef<Set<AudioBufferSourceNode>>(new Set());
 
+  const isMounted = useRef(true);
+
+  useEffect(() => {
+    isMounted.current = true;
+    return () => {
+      isMounted.current = false;
+      stopSession();
+    };
+  }, []);
+
   const stopSession = () => {
     sessionRef.current?.close();
     sessionRef.current = null;
@@ -47,18 +57,24 @@ export const LiveAssistantView: React.FC = () => {
     inputAudioCtxRef.current = null;
     outputAudioCtxRef.current?.close();
     outputAudioCtxRef.current = null;
-    setIsActive(false);
+    if (isMounted.current) setIsActive(false);
     for (const source of sourcesRef.current) { try { source.stop(); } catch(e){} }
     sourcesRef.current.clear();
   };
 
   const startLiveSession = async () => {
+    if (!isMounted.current) return;
     setIsConnecting(true);
     setError(null);
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
+      if (!apiKey) {
+        throw new Error("Assistente indisponível: Chave de API não configurada.");
+      }
+      const ai = new GoogleGenAI({ apiKey });
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       
+      if (!isMounted.current) return;
       inputAudioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 16000 });
       outputAudioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
       
@@ -66,7 +82,7 @@ export const LiveAssistantView: React.FC = () => {
       if (outputAudioCtxRef.current.state === 'suspended') await outputAudioCtxRef.current.resume();
 
       const sessionPromise = ai.live.connect({
-        model: 'gemini-2.5-flash-native-audio-preview-12-2025',
+        model: 'gemini-2.0-flash-exp', // Or 'gemini-3.1-flash-live-preview' as per latest skill
         config: {
           responseModalities: [Modality.AUDIO],
           speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Zephyr' } } },
@@ -75,40 +91,52 @@ export const LiveAssistantView: React.FC = () => {
         },
         callbacks: {
           onopen: () => {
+            if (!isMounted.current) return;
             setIsActive(true);
             setIsConnecting(false);
             const source = inputAudioCtxRef.current!.createMediaStreamSource(stream);
             const scriptProcessor = inputAudioCtxRef.current!.createScriptProcessor(4096, 1, 1);
             scriptProcessor.onaudioprocess = (e) => {
+              if (!isMounted.current) return;
               const inputData = e.inputBuffer.getChannelData(0);
               const int16 = new Int16Array(inputData.length);
               for (let i = 0; i < inputData.length; i++) int16[i] = inputData[i] * 32768;
               const pcmBlob = { data: encode(new Uint8Array(int16.buffer)), mimeType: 'audio/pcm;rate=16000' };
-              sessionPromise.then(s => s.sendRealtimeInput({ media: pcmBlob })).catch(err => console.error("Send error", err));
+              sessionPromise.then(s => {
+                if (isMounted.current) s.sendRealtimeInput({ audio: pcmBlob });
+              }).catch(err => console.error("Send error", err));
             };
             source.connect(scriptProcessor);
             scriptProcessor.connect(inputAudioCtxRef.current!.destination);
           },
           onmessage: async (m: LiveServerMessage) => {
-            if (m.serverContent?.inputTranscription) setTranscription(m.serverContent.inputTranscription.text);
+            if (!isMounted.current) return;
+            if (m.serverContent?.inputTranscription) {
+              setTranscription(m.serverContent.inputTranscription.text);
+            }
             const base64 = m.serverContent?.modelTurn?.parts[0]?.inlineData?.data;
-            if (base64 && outputAudioCtxRef.current) {
+            if (base64 && outputAudioCtxRef.current && isMounted.current) {
               const ctx = outputAudioCtxRef.current;
               nextStartTimeRef.current = Math.max(nextStartTimeRef.current, ctx.currentTime);
               const buf = await decodeAudioData(decode(base64), ctx, 24000, 1);
+              if (!isMounted.current) return;
               const src = ctx.createBufferSource();
               src.buffer = buf;
               src.connect(ctx.destination);
               src.start(nextStartTimeRef.current);
               nextStartTimeRef.current += buf.duration;
               sourcesRef.current.add(src);
-              src.onended = () => sourcesRef.current.delete(src);
+              src.onended = () => {
+                if (isMounted.current) sourcesRef.current.delete(src);
+              };
             }
           },
           onerror: (e) => {
             console.error("Session Error", e);
-            setError("Erro na conexão com a IA. Tente novamente.");
-            stopSession();
+            if (isMounted.current) {
+              setError("Erro na conexão com a IA. Tente novamente.");
+              stopSession();
+            }
           },
           onclose: () => stopSession()
         }
@@ -116,8 +144,10 @@ export const LiveAssistantView: React.FC = () => {
       sessionRef.current = await sessionPromise;
     } catch (e) {
       console.error("Boot failure", e);
-      setError("Falha ao iniciar microfone ou conexão.");
-      setIsConnecting(false);
+      if (isMounted.current) {
+        setError("Falha ao iniciar microfone ou conexão.");
+        setIsConnecting(false);
+      }
     }
   };
 

@@ -1,12 +1,13 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Plus, Trash2, Calendar, ClipboardList, CheckCircle2, 
   X, Activity, HeartPulse, Stethoscope, AlertTriangle, 
   FileText, Loader2, Zap, Printer, ArrowRight, Users, Bot,
   ShieldCheck, Hash, Pill, Clock, User, GraduationCap
 } from 'lucide-react';
-import { GoogleGenAI } from "@google/genai";
+import { db, OperationType, handleFirestoreError, auth } from '../utils/firebase';
+import { collection, addDoc, getDocs, deleteDoc, query, where, doc } from 'firebase/firestore';
 
 interface Patient {
   id: string;
@@ -14,6 +15,7 @@ interface Patient {
   age: string;
   condition: string;
   date: string;
+  doctorId?: string;
 }
 
 interface PrescriptionItem {
@@ -23,13 +25,11 @@ interface PrescriptionItem {
   instructions: string;
 }
 
+import { generateProntuario } from '../utils/aiService';
+
 export const ConsultationsView: React.FC = () => {
-  const [patients, setPatients] = useState<Patient[]>([
-    { id: '1', name: 'Maria do Socorro', age: '62', condition: 'Hipertensa e Diabética Tipo 2', date: '12/10/2024' },
-    { id: '2', name: 'João Pereira', age: '45', condition: 'Asma Grave e Obesidade Grau I', date: '14/10/2024' },
-    { id: '3', name: 'Antônio Carlos', age: '70', condition: 'Insuficiência Cardíaca (NYHA II)', date: '15/10/2024' },
-  ]);
-  
+  const [patients, setPatients] = useState<Patient[]>([]);
+  const [loadingPatients, setLoadingPatients] = useState(true);
   const [isAdding, setIsAdding] = useState(false);
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [isRecordOpen, setIsRecordOpen] = useState(false);
@@ -42,24 +42,66 @@ export const ConsultationsView: React.FC = () => {
     { id: '1', medication: 'Metformina 850mg', dosage: '1 comprimido 2x ao dia', instructions: 'Tomar após o café e após o jantar.' }
   ]);
   const [currentPrescriptionHash, setCurrentPrescriptionHash] = useState('');
+  const isMounted = React.useRef(true);
+
+  useEffect(() => {
+    isMounted.current = true;
+    fetchPatients();
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
+
+  const fetchPatients = async () => {
+    if (!auth.currentUser) return;
+    setLoadingPatients(true);
+    const path = 'patients';
+    try {
+      const q = query(collection(db, path), where('doctorId', '==', auth.currentUser.uid));
+      const querySnapshot = await getDocs(q);
+      const patientsData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Patient));
+      if (isMounted.current) {
+        setPatients(patientsData);
+      }
+    } catch (error) {
+      handleFirestoreError(error, OperationType.LIST, path);
+    } finally {
+      if (isMounted.current) setLoadingPatients(false);
+    }
+  };
 
   const generateHash = () => {
     return 'PMM-' + Math.random().toString(36).substring(2, 8).toUpperCase() + '-' + Math.random().toString(36).substring(2, 4).toUpperCase();
   };
 
-  const addPatient = () => {
-    if (!newPatient.name) return;
-    const patient: Patient = {
-      ...newPatient,
-      id: Math.random().toString(36).substr(2, 9),
-      date: new Date().toLocaleDateString('pt-BR')
-    };
-    setPatients([patient, ...patients]);
-    setNewPatient({ name: '', age: '', condition: '' });
-    setIsAdding(false);
+  const addPatient = async () => {
+    if (!newPatient.name || !auth.currentUser) return;
+    const path = 'patients';
+    try {
+      const patientData = {
+        ...newPatient,
+        doctorId: auth.currentUser.uid,
+        date: new Date().toLocaleDateString('pt-BR')
+      };
+      const docRef = await addDoc(collection(db, path), patientData);
+      const patient: Patient = { id: docRef.id, ...patientData };
+      setPatients([patient, ...patients]);
+      setNewPatient({ name: '', age: '', condition: '' });
+      setIsAdding(false);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.CREATE, path);
+    }
   };
 
-  const removePatient = (id: string) => setPatients(patients.filter(p => p.id !== id));
+  const removePatient = async (id: string) => {
+    const path = `patients/${id}`;
+    try {
+      await deleteDoc(doc(db, 'patients', id));
+      setPatients(patients.filter(p => p.id !== id));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, path);
+    }
+  };
 
   const openQuickRecord = async (patient: Patient) => {
     setSelectedPatient(patient);
@@ -68,25 +110,18 @@ export const ConsultationsView: React.FC = () => {
     setAiAnalysis('');
 
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
-        contents: `Como um médico preceptor do PMMB, forneça um "Prontuário Rápido" ultra-objetivo para o caso abaixo:
-        Paciente: ${patient.name}, ${patient.age} anos. 
-        Condição Principal: ${patient.condition}. 
-        
-        Siga rigorosamente esta estrutura:
-        - PERFIL CLÍNICO: (2 linhas sobre o manejo padrão)
-        - RISCOS IMEDIATOS: (Alertas baseados na idade e patologia)
-        - CONDUTA SUGERIDA: (3 passos técnicos citando protocolos brasileiros do PMMB)
-        
-        Seja conciso, use linguagem médica de alto nível.`,
-      });
-      setAiAnalysis(response.text || 'Análise indisponível.');
+      const text = await generateProntuario(patient);
+      if (isMounted.current) {
+        setAiAnalysis(text || 'Análise indisponível.');
+      }
     } catch (error) {
-      setAiAnalysis('Erro de conexão clínica.');
+      if (isMounted.current) {
+        setAiAnalysis('Erro de conexão clínica.');
+      }
     } finally {
-      setIsLoadingAnalysis(false);
+      if (isMounted.current) {
+        setIsLoadingAnalysis(false);
+      }
     }
   };
 
@@ -137,7 +172,15 @@ export const ConsultationsView: React.FC = () => {
               <div className="w-16 h-16 bg-slate-50 rounded-[1.8rem] flex items-center justify-center text-accent-600 shadow-inner group-hover:bg-accent-600 group-hover:text-white transition-all duration-700">
                 <ClipboardList size={28} />
               </div>
-              <button onClick={() => removePatient(p.id)} className="p-3 text-slate-200 hover:text-red-500 transition-colors">
+              <button 
+                onClick={() => {
+                  if (window.confirm('Tem certeza que deseja excluir os dados deste paciente? Esta ação é irreversível.')) {
+                    removePatient(p.id);
+                  }
+                }} 
+                className="p-3 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
+                title="Excluir Registro"
+              >
                 <Trash2 size={20} />
               </button>
             </div>
@@ -292,6 +335,53 @@ export const ConsultationsView: React.FC = () => {
                <button className="flex-1 bg-white text-accent-600 border border-accent-100 py-6 md:py-8 rounded-[2rem] font-black text-xs md:text-sm uppercase tracking-[0.3em] hover:bg-accent-50 transition-all flex items-center justify-center gap-4 transform active:scale-95">
                  <ShieldCheck size={24} /> ASSINATURA DIGITAL
                </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Cadastro de Paciente */}
+      {isAdding && (
+        <div className="fixed inset-0 z-[130] flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-xl animate-in fade-in duration-500">
+          <div className="bg-white rounded-[3rem] w-full max-w-md p-10 shadow-surgical-xl border border-white relative animate-zoom-fade">
+            <button onClick={() => setIsAdding(false)} className="absolute top-8 right-8 p-3 text-slate-300 hover:text-slate-900 transition-all">
+              <X size={24} />
+            </button>
+            <h3 className="text-2xl font-black text-slate-900 mb-8 tracking-tight uppercase">Novo Paciente PMMB</h3>
+            <div className="space-y-6">
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nome Completo</label>
+                <input 
+                  type="text" 
+                  value={newPatient.name} 
+                  onChange={(e) => setNewPatient({...newPatient, name: e.target.value})}
+                  className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-6 py-4 text-sm font-bold focus:outline-none focus:ring-4 focus:ring-accent-50 transition-all" 
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Idade</label>
+                <input 
+                  type="number" 
+                  value={newPatient.age} 
+                  onChange={(e) => setNewPatient({...newPatient, age: e.target.value})}
+                  className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-6 py-4 text-sm font-bold focus:outline-none focus:ring-4 focus:ring-accent-50 transition-all" 
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Condição Principal</label>
+                <input 
+                  type="text" 
+                  value={newPatient.condition} 
+                  onChange={(e) => setNewPatient({...newPatient, condition: e.target.value})}
+                  className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-6 py-4 text-sm font-bold focus:outline-none focus:ring-4 focus:ring-accent-50 transition-all" 
+                />
+              </div>
+              <button 
+                onClick={addPatient}
+                className="w-full py-6 bg-neutral-900 text-white rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] shadow-xl hover:bg-accent-600 transition-all active:scale-95"
+              >
+                CADASTRAR NO SISTEMA
+              </button>
             </div>
           </div>
         </div>

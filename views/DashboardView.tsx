@@ -44,7 +44,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ user, onLogout, ey
         return (
           <div className="animate-zoom-fade space-y-10">
             {/* Hero Section with Medical Symbols */}
-            <div className="relative overflow-hidden bg-neutral-900 rounded-[2.5rem] p-8 md:p-14 text-white shadow-surgical-xl">
+            <div className="relative overflow-hidden rounded-[2.5rem] p-8 md:p-14 text-white shadow-surgical-xl dashboard-hero-refined">
                <div className="absolute inset-0 opacity-10 pointer-events-none">
                  <div className="grid grid-cols-6 gap-16 -rotate-12 translate-x-[-10%] translate-y-[-10%]">
                     {Array.from({length: 24}).map((_, i) => {
@@ -76,8 +76,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ user, onLogout, ey
             </div>
 
             <DashboardCards onNavigate={setActivePage} />
-            <DashboardLists />
             <StatisticsSection />
+            <DashboardLists />
           </div>
         );
       case 'map': return <UnidadeApoioView />;

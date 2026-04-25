@@ -1,0 +1,100 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Default Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Global Helpers ---
+    function isSignedIn() { return request.auth != null; }
+    function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
+    function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
+    function getUserData() { return get(/databases/$(database)/documents/users/$(request.auth.uid)).data; }
+    function isAdmin() { return isSignedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid)); }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+
+    // --- Entity Validations ---
+    function isValidUser(data) {
+      return data.keys().hasAll(['name', 'role'])
+        && data.keys().size() >= 2
+        && data.name is string && data.name.size() <= 100
+        && (data.role == 'doctor' || data.role == 'admin')
+        && (!('status' in data) || data.status in ['active', 'pending', 'disabled'])
+        && (!('phone' in data) || (data.phone is string && data.phone.size() <= 30))
+        && (!('crm' in data) || (data.crm is string && data.crm.size() <= 50))
+        && (!('rms' in data) || (data.rms is string && data.rms.size() <= 50));
+    }
+
+    function isValidPatient(data) {
+      return data.keys().hasAll(['name', 'age', 'condition', 'doctorId'])
+        && data.name is string && data.name.size() <= 200
+        && data.age is string && data.age.size() <= 3
+        && data.condition is string && data.condition.size() <= 1000
+        && data.doctorId == request.auth.uid;
+    }
+
+    function isValidMessage(data) {
+      return data.keys().hasAll(['senderId', 'text', 'timestamp'])
+        && data.senderId == request.auth.uid
+        && data.text is string && data.text.size() <= 5000
+        && data.timestamp == request.time;
+    }
+
+    // --- Match Blocks ---
+    match /admins/{adminId} {
+      allow read: if isSignedIn();
+      allow write: if false; // Managed via platform console
+    }
+
+    match /users/{userId} {
+      allow get: if isSignedIn(); 
+      allow list: if isSignedIn(); // Allow doctors to find colleagues
+      
+      allow create: if isOwner(userId) 
+        && isValidUser(incoming())
+        && incoming().role == 'doctor'
+        && incoming().status == 'pending';
+
+      allow update: if isSignedIn() && (
+        isAdmin() ||
+        (isOwner(userId)
+         && incoming().role == existing().role
+         && incoming().status == existing().status)
+      );
+    }
+
+    match /patients/{patientId} {
+      allow get: if isSignedIn() && (isAdmin() || existing().doctorId == request.auth.uid);
+      allow list: if isSignedIn() && (isAdmin() || resource.data.doctorId == request.auth.uid);
+      
+      allow create: if isSignedIn() && isValidId(patientId) && isValidPatient(incoming());
+      
+      allow update: if isSignedIn() && isValidId(patientId) && (isAdmin() || existing().doctorId == request.auth.uid)
+        && isValidPatient(incoming())
+        && incoming().doctorId == existing().doctorId;
+        
+      allow delete: if isSignedIn() && (isAdmin() || existing().doctorId == request.auth.uid);
+    }
+
+    match /chats/{chatId} {
+      allow get: if isSignedIn() && request.auth.uid in existing().participants;
+      allow list: if isSignedIn() && request.auth.uid in resource.data.participants;
+      
+      allow create: if isSignedIn() && isValidId(chatId)
+        && incoming().participants.size() == 2
+        && request.auth.uid in incoming().participants;
+        
+      allow update: if isSignedIn() && request.auth.uid in existing().participants
+        && incoming().participants == existing().participants;
+
+      match /messages/{messageId} {
+        allow list, get: if isSignedIn() && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants;
+        allow create: if isSignedIn() && isValidId(messageId)
+          && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants
+          && isValidMessage(incoming());
+      }
+    }
+  }
+}

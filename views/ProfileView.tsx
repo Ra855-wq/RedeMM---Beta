@@ -1,66 +1,20 @@
 
 import React, { useState, useEffect } from 'react';
 import { 
-  User, 
-  Mail, 
-  Phone, 
-  MapPin, 
-  ShieldCheck, 
-  Bell, 
-  Award, 
-  Camera, 
-  Save, 
-  Lock, 
-  Key,
-  Globe,
-  Building2,
-  Calendar,
-  CheckCircle2,
-  Loader2,
-  Sparkles,
-  Zap,
-  Fingerprint,
-  Stethoscope,
-  ChevronRight,
-  Hash,
-  BrainCircuit,
-  GraduationCap,
-  BookOpen,
-  Plus,
-  FileText,
-  Upload,
-  Trash2,
-  ExternalLink
+  User as UserIcon, Mail, Phone, MapPin, ShieldCheck, Bell, Award, 
+  Camera, Save, Lock, Key, Globe, Building2, Calendar, CheckCircle2, 
+  Loader2, Sparkles, Zap, Fingerprint, Stethoscope, ChevronRight, 
+  Hash, BrainCircuit, GraduationCap, BookOpen, Plus, FileText, 
+  Upload, Trash2, ExternalLink, X, Image
 } from 'lucide-react';
 import { safeStorage } from '../utils/storage';
+import { db, auth, handleFirestoreError, OperationType } from '../utils/firebase';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 
 const STORAGE_KEY = 'redemm_profile_data';
 
-interface AcademicItem {
-  id: string;
-  title: string;
-  institution: string;
-  year: string;
-}
-
-interface PublicationItem {
-  id: string;
-  title: string;
-  journal: string;
-  link: string;
-}
-
-interface CertificationItem {
-  id: string;
-  name: string;
-  issuer: string;
-  date: string;
-  fileBase64?: string;
-  fileName?: string;
-}
-
 const DEFAULT_PROFILE = {
-  name: 'Dr. Rafael Araujo',
+  name: 'Dr. Rafael Dalazen Araujo',
   role: 'Médico Bolsista PMMB',
   crm: 'CRM/ES 987.654',
   rms: 'RMS/MS 123.456.789-00',
@@ -68,25 +22,25 @@ const DEFAULT_PROFILE = {
   phone: '(27) 99888-7766',
   ubs: 'Unidade de Saúde Joaquim Industrial Viana/ES',
   registration: 'PMMB #772154',
+  photo: '/input_file_1.png',
+  branding_logo: '/input_file_0.png',
   bio: 'Médico Bolsista do PMMB em ciclo de aperfeiçoamento profissional. Foco em Estratégia Saúde da Família e desenvolvimento de competências em Medicina de Comunidade.',
   academic: [
     { id: '1', title: 'Especialização em Saúde da Família', institution: 'UNASUS/UFES', year: '2023' }
-  ] as AcademicItem[],
+  ],
   publications: [
     { id: '1', title: 'Manejo de Hipertensão em Áreas Rurais', journal: 'Revista Brasileira de Medicina de Família', link: '#' }
-  ] as PublicationItem[],
-  certifications: [] as CertificationItem[]
+  ],
+  certifications: []
 };
 
 export const ProfileView: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'info' | 'fellowship' | 'security' | 'preferences' | 'notifications'>('info');
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [loading, setLoading] = useState(true);
   
-  const [profile, setProfile] = useState(() => {
-    const saved = safeStorage.getItem(STORAGE_KEY);
-    return saved ? JSON.parse(saved) : DEFAULT_PROFILE;
-  });
+  const [profile, setProfile] = useState<any>(DEFAULT_PROFILE);
 
   const [notifications, setNotifications] = useState({
     preceptoria: true,
@@ -102,40 +56,117 @@ export const ProfileView: React.FC = () => {
     accentColor: 'blue',
     compactMode: false
   });
+  const isMounted = React.useRef(true);
 
-  const handleSave = async () => {
-    setIsSaving(true);
+  useEffect(() => {
+    isMounted.current = true;
+    fetchProfile();
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
+
+  const fetchProfile = async () => {
+    if (!auth.currentUser) return;
+    setLoading(true);
     try {
-      const user = JSON.parse(safeStorage.getItem('redemm_user') || '{}');
-      if (user.username) {
-        await fetch(`/api/profile/${user.username}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ profile, notifications, appearance })
+      const docRef = doc(db, 'users', auth.currentUser.uid);
+      const docSnap = await getDoc(docRef);
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        setProfile({
+          ...DEFAULT_PROFILE,
+          ...data,
+          name: data.name || auth.currentUser.displayName || DEFAULT_PROFILE.name,
+          email: data.email || auth.currentUser.email || DEFAULT_PROFILE.email,
+          photo: data.photo || auth.currentUser.photoURL || DEFAULT_PROFILE.photo
         });
+        if (data.notifications) setNotifications(data.notifications);
+        if (data.appearance) setAppearance(data.appearance);
       }
-      
-      safeStorage.setItem(STORAGE_KEY, JSON.stringify(profile));
-      safeStorage.setItem('redemm_notifications', JSON.stringify(notifications));
-      safeStorage.setItem('redemm_appearance', JSON.stringify(appearance));
-      
-      setIsSaving(false);
-      setSaveSuccess(true);
-      window.dispatchEvent(new CustomEvent('profileUpdated', { detail: profile }));
-      setTimeout(() => setSaveSuccess(false), 3000);
-    } catch (err) {
-      console.error("Erro ao salvar perfil", err);
-      setIsSaving(false);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.GET, `users/${auth.currentUser.uid}`);
+    } finally {
+      if (isMounted.current) setLoading(false);
     }
   };
 
-  useEffect(() => {
-    const savedNotifications = safeStorage.getItem('redemm_notifications');
-    if (savedNotifications) setNotifications(JSON.parse(savedNotifications));
-    
-    const savedAppearance = safeStorage.getItem('redemm_appearance');
-    if (savedAppearance) setAppearance(JSON.parse(savedAppearance));
-  }, []);
+  const handleSave = async () => {
+    if (!isMounted.current || !auth.currentUser) return;
+
+    // Minimal validation
+    const rmsPattern = /^RMS\/MS\s\d{3}\.\d{3}\.\d{3}-\d{2}$/i;
+    const crmPattern = /^CRM\/[A-Z]{2}\s\d+(\.\d+)?$/i;
+    const phonePattern = /^\(\d{2}\)\s\d{4,5}-\d{4}$/;
+
+    if (profile.rms && !rmsPattern.test(profile.rms) && !profile.rms.includes('#')) {
+      alert('Formato de RMS inválido. Use: RMS/MS 000.000.000-00');
+      return;
+    }
+    if (profile.crm && !crmPattern.test(profile.crm)) {
+      alert('Formato de CRM inválido. Use: CRM/UF 000.000');
+      return;
+    }
+    if (profile.phone && !phonePattern.test(profile.phone)) {
+      alert('Formato de telefone inválido. Use: (00) 00000-0000');
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const docRef = doc(db, 'users', auth.currentUser.uid);
+      await setDoc(docRef, {
+        ...profile,
+        notifications,
+        appearance,
+        updatedAt: new Date()
+      }, { merge: true });
+      
+      if (profile.personal_api_key) {
+        localStorage.setItem('pmmb_personal_api_key', profile.personal_api_key);
+      } else {
+        localStorage.removeItem('pmmb_personal_api_key');
+      }
+
+      if (isMounted.current) {
+        setIsSaving(false);
+        setSaveSuccess(true);
+      }
+      window.dispatchEvent(new CustomEvent('profileUpdated', { detail: profile }));
+      setTimeout(() => {
+        if (isMounted.current) setSaveSuccess(false);
+      }, 3000);
+    } catch (err) {
+      handleFirestoreError(err, OperationType.UPDATE, `users/${auth.currentUser?.uid}`);
+      if (isMounted.current) setIsSaving(false);
+    }
+  };
+
+  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 2 * 1024 * 1024) {
+        alert('A imagem é muito grande. O limite é 2MB.');
+        return;
+      }
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setProfile((prev: any) => ({ ...prev, photo: reader.result as string }));
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleBrandingUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setProfile((prev: any) => ({ ...prev, branding_logo: reader.result as string }));
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, certId: string) => {
     const file = e.target.files?.[0];
@@ -143,12 +174,14 @@ export const ProfileView: React.FC = () => {
       const reader = new FileReader();
       reader.onloadend = () => {
         const base64String = reader.result as string;
-        setProfile((prev: any) => ({
-          ...prev,
-          certifications: prev.certifications.map((c: any) => 
-            c.id === certId ? { ...c, fileBase64: base64String, fileName: file.name } : c
-          )
-        }));
+        if (isMounted.current) {
+          setProfile((prev: any) => ({
+            ...prev,
+            certifications: prev.certifications.map((c: any) => 
+              c.id === certId ? { ...c, fileBase64: base64String, fileName: file.name } : c
+            )
+          }));
+        }
       };
       reader.readAsDataURL(file);
     }
@@ -184,7 +217,7 @@ export const ProfileView: React.FC = () => {
   };
 
   const tabs = [
-    { id: 'info', label: 'Dados do Bolsista', icon: User },
+    { id: 'info', label: 'Dados do Bolsista', icon: UserIcon },
     { id: 'fellowship', label: 'Produção & Fellowship', icon: GraduationCap },
     { id: 'security', label: 'Segurança & Acesso', icon: ShieldCheck },
     { id: 'notifications', label: 'Notificações', icon: Bell },
@@ -237,6 +270,17 @@ export const ProfileView: React.FC = () => {
                     type="text" 
                     value={profile.crm}
                     onChange={(e) => setProfile({...profile, crm: e.target.value})}
+                    placeholder="Ex: CRM/ES 123.456"
+                    className="w-full bg-white border border-slate-100 rounded-[1.8rem] px-8 py-5 text-base font-bold text-slate-800 focus:outline-none focus:ring-4 focus:ring-accent-50 transition-all shadow-sm" 
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Telefone de Contato</label>
+                  <input 
+                    type="text" 
+                    value={profile.phone || ''}
+                    onChange={(e) => setProfile({...profile, phone: e.target.value})}
+                    placeholder="Ex: (27) 99999-8888"
                     className="w-full bg-white border border-slate-100 rounded-[1.8rem] px-8 py-5 text-base font-bold text-slate-800 transition-all shadow-sm" 
                   />
                 </div>
@@ -393,18 +437,104 @@ export const ProfileView: React.FC = () => {
 
       case 'security':
         return (
-          <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
+          <div className="space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div className="bg-white border border-slate-100 p-10 rounded-[3rem] shadow-sm hover:shadow-surgical-xl transition-all group cursor-pointer">
-                  <div className="w-14 h-14 bg-slate-50 rounded-[1.5rem] flex items-center justify-center mb-6 group-hover:bg-neutral-900 group-hover:text-white transition-all">
-                    <Key size={24} />
+                {/* Branding Section */}
+                <div className="bg-white border border-slate-100 p-10 rounded-[3rem] shadow-sm hover:shadow-surgical-xl transition-all group overflow-hidden relative">
+                  <div className="absolute top-0 right-0 p-8 text-accent-100 group-hover:text-accent-500/20 transition-colors">
+                    <Award size={80} />
                   </div>
-                  <h5 className="font-black text-slate-900 text-lg mb-2">Segurança da Senha</h5>
-                  <p className="text-xs text-slate-400 font-medium mb-6 leading-relaxed">Acesso exclusivo via ID Ministerial Sincronizado.</p>
-                  <button className="flex items-center gap-2 text-[10px] font-black text-accent-600 uppercase tracking-widest hover:translate-x-1 transition-transform">
-                    REDEFINIR CREDENCIAIS <ChevronRight size={14} />
-                  </button>
+                  <div className="relative z-10">
+                    <div className="w-14 h-14 bg-slate-50 rounded-[1.5rem] flex items-center justify-center mb-6 group-hover:bg-neutral-900 group-hover:text-white transition-all">
+                      <Image size={24} />
+                    </div>
+                    <h5 className="font-black text-slate-900 text-lg mb-2">Identidade Visual (Portfólio)</h5>
+                    <p className="text-xs text-slate-400 font-medium mb-8 leading-relaxed">Sua marca MedSentinel e assinaturas personalizadas.</p>
+                    
+                    <div className="flex items-center gap-6">
+                      {profile.branding_logo && (
+                        <div className="relative w-24 h-24 bg-slate-50 rounded-2xl overflow-hidden border border-slate-100 p-2">
+                          <img src={profile.branding_logo} alt="Sua Marca" className="w-full h-full object-contain" />
+                          <button 
+                            onClick={() => setProfile({...profile, branding_logo: null})}
+                            className="absolute top-1 right-1 bg-red-500 text-white p-1.5 rounded-full shadow-lg"
+                            aria-label="Remover logo"
+                          >
+                            <X size={12} />
+                          </button>
+                        </div>
+                      )}
+                      
+                      <label 
+                        className="flex-1 cursor-pointer"
+                        onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          const file = e.dataTransfer.files?.[0];
+                          if (file) handleBrandingUpload({ target: { files: [file] } } as any);
+                        }}
+                      >
+                        <div className="p-6 border-2 border-dashed border-slate-200 rounded-[2rem] hover:border-accent-400 transition-all text-center group/upload">
+                          <Upload size={24} className="mx-auto mb-2 text-slate-300 group-hover/upload:text-accent-500 transition-colors" />
+                          <span className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400">Arraste Logo ou Icone</span>
+                          <input type="file" className="hidden" accept="image/*" onChange={handleBrandingUpload} />
+                        </div>
+                      </label>
+                    </div>
+                  </div>
                 </div>
+
+                <div className="bg-white border border-slate-100 p-10 rounded-[3rem] shadow-sm hover:shadow-surgical-xl transition-all group overflow-hidden relative">
+                  <div className="absolute top-0 right-0 p-8 text-accent-100 group-hover:text-accent-500/20 transition-colors">
+                    <Key size={80} />
+                  </div>
+                  <div className="relative z-10">
+                    <div className="w-14 h-14 bg-slate-50 rounded-[1.5rem] flex items-center justify-center mb-6 group-hover:bg-neutral-900 group-hover:text-white transition-all">
+                      <Key size={24} />
+                    </div>
+                    <h5 className="font-black text-slate-900 text-lg mb-2">Chave de Inteligência (API)</h5>
+                    <p className="text-xs text-slate-400 font-medium mb-8 leading-relaxed">Personalize seu acesso aos modelos Gemini. Sua chave é armazenada de forma segura.</p>
+                    
+                    <div className="space-y-2">
+                       <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Personal API Key (Oculto)</label>
+                       <input 
+                         type="password" 
+                         value={profile.personal_api_key || ''}
+                         onChange={(e) => setProfile({...profile, personal_api_key: e.target.value})}
+                         placeholder="Ex: AIzaSyB..."
+                         className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-6 py-4 text-sm font-bold focus:ring-4 focus:ring-accent-50 outline-none transition-all" 
+                       />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white border border-slate-100 p-10 rounded-[3rem] shadow-sm hover:shadow-surgical-xl transition-all group overflow-hidden relative">
+                  <div className="absolute top-0 right-0 p-8 text-red-50 group-hover:text-red-500/10 transition-colors">
+                    <Trash2 size={80} />
+                  </div>
+                  <div className="relative z-10">
+                    <div className="w-14 h-14 bg-slate-50 rounded-[1.5rem] flex items-center justify-center mb-6 group-hover:bg-red-500 group-hover:text-white transition-all">
+                      <Trash2 size={24} />
+                    </div>
+                    <h5 className="font-black text-slate-900 text-lg mb-2">Limpeza de Ambiente</h5>
+                    <p className="text-xs text-slate-400 font-medium mb-8 leading-relaxed">Apague o cache e dados temporários do navegador para liberar espaço e resolver conflitos.</p>
+                    
+                    <button 
+                      onClick={() => {
+                        if (window.confirm('Deseja ativar a limpeza profunda? Isso removerá suas preferências locais e redefinirá o ambiente. Dados no servidor PMMB permanecerão intactos.')) {
+                          localStorage.clear();
+                          sessionStorage.clear();
+                          window.location.reload();
+                        }
+                      }}
+                      className="w-full py-4 bg-red-50 text-red-600 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-red-500 hover:text-white transition-all active:scale-95 flex items-center justify-center gap-3"
+                    >
+                      ATIVAR LIMPEZA PROFUNDA
+                    </button>
+                  </div>
+                </div>
+
                 <div className="bg-white border border-slate-100 p-10 rounded-[3rem] shadow-sm hover:shadow-surgical-xl transition-all group cursor-pointer">
                   <div className="w-14 h-14 bg-slate-50 rounded-[1.5rem] flex items-center justify-center mb-6 group-hover:bg-accent-600 group-hover:text-white transition-all">
                     <Fingerprint size={24} />
@@ -524,15 +654,28 @@ export const ProfileView: React.FC = () => {
 
           <div className="absolute -bottom-20 left-16 flex items-end gap-10">
             <div className="relative group">
-              <div className="absolute -inset-4 bg-white/50 backdrop-blur-xl rounded-[4rem] border border-white/80 shadow-2xl"></div>
+              <div className="absolute -inset-4 bg-white/50 backdrop-blur-xl rounded-full border border-white/80 shadow-2xl"></div>
               <img 
-                src="https://images.unsplash.com/photo-1559839734-2b71f1e59816?auto=format&fit=crop&q=80&w=256" 
-                alt="Profile" 
-                className="w-44 h-44 rounded-[3.5rem] object-cover relative z-10 shadow-2xl grayscale hover:grayscale-0 transition-all duration-700"
+                id="profile-img-main"
+                src={profile.photo || "/input_file_1.png"} 
+                alt={`Foto de perfil de ${profile.name}`} 
+                className="w-44 h-44 rounded-full object-cover relative z-10 shadow-2xl transition-all duration-700 profile-image-refined border-4 border-white"
               />
-              <button className="absolute bottom-2 right-2 z-20 bg-neutral-900 text-white p-4 rounded-2xl shadow-2xl hover:bg-accent-600 transition-all">
-                <Camera size={20} />
-              </button>
+              <label 
+                htmlFor="profile-photo-input"
+                className="absolute bottom-2 right-2 z-20 bg-neutral-900 text-white p-4 rounded-full shadow-2xl hover:bg-accent-600 transition-all cursor-pointer focus-within:ring-4 focus-within:ring-accent-400 outline-none"
+                aria-label="Alterar foto de perfil"
+                title="Alterar foto de perfil"
+              >
+                <Camera size={20} aria-hidden="true" />
+                <input 
+                  id="profile-photo-input"
+                  type="file" 
+                  className="sr-only" 
+                  accept="image/*" 
+                  onChange={handlePhotoUpload} 
+                />
+              </label>
             </div>
             
             <div className="pb-28">
@@ -541,6 +684,13 @@ export const ProfileView: React.FC = () => {
                   <div className="w-8 h-8 bg-accent-600 rounded-full flex items-center justify-center text-white shadow-lg">
                      <CheckCircle2 size={18} />
                   </div>
+                  {profile.branding_logo && (
+                    <img 
+                      src={profile.branding_logo} 
+                      alt="Logo MedSentinel" 
+                      className="h-10 w-auto opacity-80 hover:opacity-100 transition-opacity ml-2" 
+                    />
+                  )}
                </div>
                <div className="flex items-center gap-4">
                   <span className="flex items-center gap-2 px-4 py-2 bg-neutral-900 text-white rounded-full text-[10px] font-black uppercase tracking-widest shadow-xl">

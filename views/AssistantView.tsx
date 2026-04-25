@@ -1,7 +1,8 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { BrainCircuit, Send, Loader2, Sparkles, User, Bot, Mic, Volume2, Lightbulb, Zap, Settings2, ChevronDown, ChevronUp } from 'lucide-react';
-import { GoogleGenAI, Modality } from "@google/genai";
+
+import { aiChat, generateTTS } from '../utils/aiService';
 
 function decodeBase64(base64: string) {
   const binaryString = atob(base64);
@@ -37,6 +38,14 @@ export const AssistantView: React.FC = () => {
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
+  const isMounted = useRef(true);
+
+  useEffect(() => {
+    isMounted.current = true;
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -45,7 +54,7 @@ export const AssistantView: React.FC = () => {
   }, [messages, isProcessing]);
 
   const speakText = async (text: string) => {
-    if (isSpeaking) return;
+    if (isSpeaking || !isMounted.current) return;
     setIsSpeaking(true);
     
     try {
@@ -55,33 +64,27 @@ export const AssistantView: React.FC = () => {
       const ctx = audioCtxRef.current;
       if (ctx.state === 'suspended') await ctx.resume();
 
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       const speechText = text.length > 500 ? text.substring(0, 500) + "..." : text;
-      
-      const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash-preview-tts",
-        contents: [{ parts: [{ text: `Diga de forma rápida e clara: ${speechText}` }] }],
-        config: {
-          responseModalities: [Modality.AUDIO],
-          speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Kore' } } },
-        },
-      });
+      const ttsText = `Diga de forma rápida e clara: ${speechText}`;
+      const base64Audio = await generateTTS(ttsText);
 
-      const base64Audio = response.candidates?.[0]?.content?.parts?.find(p => p.inlineData)?.inlineData?.data;
+      if (!isMounted.current) return;
       if (base64Audio) {
         const audioData = decodeBase64(base64Audio);
         const audioBuffer = await decodeAudioDataPCM(audioData, ctx, 24000, 1);
         const source = ctx.createBufferSource();
         source.buffer = audioBuffer;
         source.connect(ctx.destination);
-        source.onended = () => setIsSpeaking(false);
+        source.onended = () => {
+          if (isMounted.current) setIsSpeaking(false);
+        };
         source.start();
       } else {
         setIsSpeaking(false);
       }
     } catch (e) {
       console.error("Erro no TTS:", e);
-      setIsSpeaking(false);
+      if (isMounted.current) setIsSpeaking(false);
     }
   };
 
@@ -89,40 +92,43 @@ export const AssistantView: React.FC = () => {
     if (!('webkitSpeechRecognition' in window)) return;
     const recognition = new (window as any).webkitSpeechRecognition();
     recognition.lang = 'pt-BR';
-    recognition.onstart = () => setIsRecording(true);
-    recognition.onend = () => setIsRecording(false);
-    recognition.onresult = (event: any) => setInput(prev => prev + " " + event.results[0][0].transcript);
+    recognition.onstart = () => {
+      if (isMounted.current) setIsRecording(true);
+    };
+    recognition.onend = () => {
+      if (isMounted.current) setIsRecording(false);
+    };
+    recognition.onresult = (event: any) => {
+      if (isMounted.current) setInput(prev => prev + " " + event.results[0][0].transcript);
+    };
     recognition.start();
   };
 
   const handleSend = async () => {
-    if (!input.trim() || isProcessing) return;
+    if (!input.trim() || isProcessing || !isMounted.current) return;
     const userMsg = input.trim();
     setInput('');
-    setMessages(prev => [...prev, { role: 'user', content: userMsg }]);
+    const newMessages = [...messages, { role: 'user' as const, content: userMsg }];
+    setMessages(newMessages);
     setIsProcessing(true);
 
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      const config: any = {
-        systemInstruction: "Você é o Tutor de Inteligência Cirúrgica e Clínica. Sua missão é fornecer suporte educacional avançado para médicos e estudantes do PMMB. Explique conceitos, raciocínios clínicos e protocolos de forma didática, precisa e estruturada. Use analogias quando apropriado, cite fontes ou protocolos PMMB/CID-10 e incentive o pensamento crítico.",
-        temperature,
-        topK,
-        topP
-      };
-      if (useDeepThinking) config.thinkingConfig = { thinkingBudget: 16000 };
+      const gptMessages = newMessages.map(m => ({
+        role: m.role === 'assistant' ? 'model' : 'user',
+        parts: [{ text: m.content }]
+      }));
+      
+      const text = await aiChat(gptMessages);
 
-      const response = await ai.models.generateContent({
-        model: useDeepThinking ? 'gemini-3-pro-preview' : 'gemini-3-flash-preview',
-        contents: userMsg,
-        config: config
-      });
-
-      setMessages(prev => [...prev, { role: 'assistant', content: response.text || "Sem resposta." }]);
+      if (isMounted.current) {
+        setMessages(prev => [...prev, { role: 'assistant', content: text || "Sem resposta." }]);
+      }
     } catch (error) {
-      setMessages(prev => [...prev, { role: 'assistant', content: "Erro de conexão." }]);
+      if (isMounted.current) {
+        setMessages(prev => [...prev, { role: 'assistant', content: "Erro de conexão." }]);
+      }
     } finally {
-      setIsProcessing(false);
+      if (isMounted.current) setIsProcessing(false);
     }
   };
 

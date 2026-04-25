@@ -4,9 +4,9 @@ import {
   MapPin, Search, Loader2, Building2, Hospital, Stethoscope, 
   Navigation, Crosshair, Target, Volume2, Hash
 } from 'lucide-react';
-import { GoogleGenAI, Modality } from "@google/genai";
-
 import { safeStorage } from '../utils/storage';
+
+import { searchHealthFacilities, generateTTS } from '../utils/aiService';
 
 declare const L: any;
 
@@ -58,7 +58,8 @@ export const UnidadeApoioView: React.FC = () => {
     if (!mapContainerRef.current) return;
 
     if (!mapRef.current) {
-      mapRef.current = L.map(mapContainerRef.current, {
+      const container = mapContainerRef.current;
+      mapRef.current = L.map(container, {
         preferCanvas: true,
         zoomControl: false,
         attributionControl: false
@@ -92,42 +93,50 @@ export const UnidadeApoioView: React.FC = () => {
       L.control.zoom({ position: 'bottomright' }).addTo(mapRef.current);
     }
 
+    const currentMap = mapRef.current;
+    const currentContainer = mapContainerRef.current;
+
     const resizeObserver = new ResizeObserver(() => {
-      if (mapRef.current) mapRef.current.invalidateSize();
+      if (currentMap) currentMap.invalidateSize();
     });
     
-    resizeObserver.observe(mapContainerRef.current);
+    if (currentContainer) resizeObserver.observe(currentContainer);
     handleGetLocation();
 
     return () => {
       resizeObserver.disconnect();
-      if (mapRef.current) {
-        mapRef.current.remove();
+      if (currentMap) {
+        // Clear all layers before removing map
+        currentMap.eachLayer((layer: any) => {
+          try { currentMap.removeLayer(layer); } catch(e) {}
+        });
+        currentMap.remove();
         mapRef.current = null;
       }
     };
   }, []);
 
   const handleGetLocation = () => {
+    if (!mapRef.current) return;
     if ("geolocation" in navigator) {
       navigator.geolocation.getCurrentPosition(
         (pos) => {
+          if (!mapRef.current) return;
           const coords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
           setLocation(coords);
-          if (mapRef.current) {
-            mapRef.current.setView([coords.lat, coords.lng], 15);
-            const userIcon = L.divIcon({
-              className: 'custom-user-marker',
-              html: `<div class="relative flex items-center justify-center"><div class="absolute w-12 h-12 bg-accent-500/20 rounded-full animate-ping"></div><div class="w-5 h-5 bg-accent-600 border-4 border-white rounded-full shadow-2xl z-10"></div></div>`,
-              iconSize: [32, 32],
-              iconAnchor: [16, 16]
-            });
-            L.marker([coords.lat, coords.lng], { icon: userIcon }).addTo(mapRef.current);
-          }
+          const m = mapRef.current;
+          m.setView([coords.lat, coords.lng], 15);
+          const userIcon = L.divIcon({
+            className: 'custom-user-marker',
+            html: `<div class="relative flex items-center justify-center"><div class="absolute w-12 h-12 bg-accent-500/20 rounded-full animate-ping"></div><div class="w-5 h-5 bg-accent-600 border-4 border-white rounded-full shadow-2xl z-10"></div></div>`,
+            iconSize: [32, 32],
+            iconAnchor: [16, 16]
+          });
+          L.marker([coords.lat, coords.lng], { icon: userIcon }).addTo(m);
         },
         (err) => {
           console.error("Erro GPS:", err);
-          // Se falhar o GPS, tenta centralizar no perfil do usuário se disponível
+          if (!mapRef.current) return;
           const profileData = safeStorage.getItem('redemm_profile_data');
           if (profileData) {
             const profile = JSON.parse(profileData);
@@ -144,19 +153,9 @@ export const UnidadeApoioView: React.FC = () => {
     if (speakingId !== null) return;
     setSpeakingId(id);
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      const prompt = `Unidade de saúde localizada: ${place.title}. Recomendação PMMB: Validar fluxo de encaminhamento via SISREG.`;
-      const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash-preview-tts",
-        contents: [{ parts: [{ text: prompt }] }],
-        config: {
-          responseModalities: [Modality.AUDIO],
-          speechConfig: {
-            voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Kore' } },
-          },
-        },
-      });
-      const base64Audio = response.candidates?.[0]?.content?.parts?.find(p => p.inlineData)?.inlineData?.data;
+      const prompt = `Unidade de saúde localizada: ${place.title}. Recomendação PMMB: Validar fluxo de encaminhamento via SISREG. `;
+      const base64Audio = await generateTTS(prompt);
+      
       if (base64Audio) {
         if (!audioCtxRef.current) audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
         const ctx = audioCtxRef.current;
@@ -166,7 +165,9 @@ export const UnidadeApoioView: React.FC = () => {
         const source = ctx.createBufferSource();
         source.buffer = audioBuffer;
         source.connect(ctx.destination);
-        source.onended = () => setSpeakingId(null);
+        source.onended = () => {
+           if (mapContainerRef.current) setSpeakingId(null);
+        };
         source.start();
       } else {
         setSpeakingId(null);
@@ -181,15 +182,8 @@ export const UnidadeApoioView: React.FC = () => {
     if (!searchTerm || loading) return;
     setLoading(true);
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      const config: any = { tools: [{ googleMaps: {} }] };
-      if (location) config.toolConfig = { retrievalConfig: { latLng: { latitude: location.lat, longitude: location.lng } } };
-      const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
-        contents: `Encontre unidades de saúde oficiais para: "${searchTerm}". Foco em rede SUS para médicos bolsistas PMMB.`,
-        config: config,
-      });
-      const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
+      const data = await searchHealthFacilities(searchTerm, location || undefined);
+      const chunks = data.groundingMetadata?.groundingChunks || [];
       const extracted = chunks
         .filter((c: any) => c.maps)
         .map((c: any, idx: number) => ({
@@ -210,7 +204,7 @@ export const UnidadeApoioView: React.FC = () => {
             iconAnchor: [20, 40]
           });
           return L.marker([p.lat, p.lng], { icon: facilityIcon })
-            .bindPopup(`<div class="p-4 min-w-[200px]"><p class="font-black text-slate-900 text-sm mb-2 uppercase tracking-tight">${p.title}</p><div class="h-px bg-slate-100 mb-3"></div><a href="${p.uri}" target="_blank" class="w-full bg-neutral-900 text-white py-3 rounded-xl text-[9px] font-black uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-accent-600 transition-all"><Navigation size={12} /> Navegar Agora</a></div>`, { closeButton: false });
+            .bindPopup(`<div class="p-4 min-w-[200px]"><p class="font-black text-slate-900 text-sm mb-2 uppercase tracking-tight">${p.title}</p><div class="h-px bg-slate-100 mb-3"></div><a href="${p.uri}" target="_blank" class="w-full bg-neutral-900 text-white py-3 rounded-xl text-[9px] font-black uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-emerald-600 transition-all">Ir para Localização</a></div>`, { closeButton: false });
         });
         clusterGroupRef.current.addLayers(markers);
         if (extracted.length > 0) mapRef.current.fitBounds(clusterGroupRef.current.getBounds(), { padding: [100, 100], animate: true });
@@ -295,7 +289,7 @@ export const UnidadeApoioView: React.FC = () => {
 
         {/* Map Container with Integrated HUD */}
         <div className="flex-1 bg-slate-100 rounded-3xl border-4 border-white shadow-surgical-xl overflow-hidden relative group">
-          <div ref={mapContainerRef} className="w-full h-full grayscale-[0.1] hover:grayscale-0 transition-all duration-1000" />
+          <div ref={mapContainerRef} className="w-full h-full grayscale-[0.1] hover:grayscale-0" />
           
           {/* Integrated HUD Row */}
           <div className="absolute top-4 left-4 right-4 z-20 flex gap-3 pointer-events-none items-center">
