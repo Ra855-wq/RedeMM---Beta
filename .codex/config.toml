@@ -1,0 +1,43 @@
+# Defaults globais
+model = "gpt-5.4"
+approval_policy = "on-request"
+sandbox_mode = "workspace-write"
+model_reasoning_effort = "high"
+web_search = "cached"
+personality = "pragmatic"
+
+[features]
+shell_snapshot = true
+shell_tool = true
+multi_agent = true
+unified_exec = true
+
+# Perfil principal: seguro e produtivo
+[profiles.rafa_dev]
+model = "gpt-5.4"
+approval_policy = "on-request"
+sandbox_mode = "workspace-write"
+model_reasoning_effort = "high"
+web_search = "cached"
+personality = "pragmatic"
+
+[profiles.rafa_dev.features]
+shell_snapshot = true
+shell_tool = true
+multi_agent = true
+unified_exec = true
+
+# Perfil alternativo: mesma base, mas com busca web ao vivo
+[profiles.rafa_live]
+model = "gpt-5.4"
+approval_policy = "on-request"
+sandbox_mode = "workspace-write"
+model_reasoning_effort = "high"
+web_search = "live"
+personality = "pragmatic"
+
+[profiles.rafa_live.features]
+shell_snapshot = true
+shell_tool = true
+multi_agent = true
+unified_exec = true

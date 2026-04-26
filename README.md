@@ -58,3 +58,15 @@ Este projeto e suas fotos integradas possuem **direitos autorais protegidos**. O
 
 > *"Transformando a prática do fellowship em excelência clínica."*
 > — **Equipe RedeMM v3.1**
+
+---
+
+## ⚙️ Perfis Codex
+
+Foi adicionada uma configuração em `.codex/config.toml` com:
+
+- **Default global** para execução pragmática e segura.
+- **Perfil `rafa_dev`** (busca web em cache).
+- **Perfil `rafa_live`** (busca web ao vivo).
+
+Isso facilita alternar rapidamente entre produtividade local e pesquisa em tempo real.
